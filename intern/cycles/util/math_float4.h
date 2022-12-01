@@ -36,6 +36,7 @@ ccl_device_inline int4 cast(const float4 a)
 }
 
 #if !defined(__KERNEL_METAL__)
+#if !defined(__HIPCC_RTC__)
 ccl_device_inline float4 operator-(const float4 &a)
 {
 #  ifdef __KERNEL_SSE__
@@ -171,7 +172,7 @@ ccl_device_inline bool operator==(const float4 a, const float4 b)
   return (a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w);
 #  endif
 }
-
+#endif //HIPRTC
 ccl_device_inline const float4 operator^(const float4 a, const float4 b)
 {
 #  ifdef __KERNEL_SSE__

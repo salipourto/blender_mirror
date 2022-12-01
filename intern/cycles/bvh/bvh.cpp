@@ -9,6 +9,7 @@
 #include "bvh/metal.h"
 #include "bvh/multi.h"
 #include "bvh/optix.h"
+#include "bvh/hiprt.h"
 
 #include "util/log.h"
 #include "util/progress.h"
@@ -30,6 +31,8 @@ const char *bvh_layout_name(BVHLayout layout)
       return "OPTIX";
     case BVH_LAYOUT_METAL:
       return "METAL";
+    case BVH_LAYOUT_HIPRT:
+      return "HIPRT";
     case BVH_LAYOUT_MULTI_OPTIX:
     case BVH_LAYOUT_MULTI_METAL:
     case BVH_LAYOUT_MULTI_OPTIX_EMBREE:
@@ -98,6 +101,13 @@ BVH *BVH::create(const BVHParams &params,
     case BVH_LAYOUT_METAL:
 #ifdef WITH_METAL
       return bvh_metal_create(params, geometry, objects, device);
+#else
+      (void)device;
+      break;
+#endif
+#ifdef WITH_HIPRT
+      case BVH_LAYOUT_HIPRT:
+      return new BVHHIPRT(params, geometry, objects, device);
 #else
       (void)device;
       break;

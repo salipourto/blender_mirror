@@ -15,6 +15,14 @@ if(WITH_CYCLES_DEVICE_OPTIX OR WITH_CYCLES_DEVICE_CUDA)
   add_definitions(-DCYCLES_RUNTIME_OPTIX_ROOT_DIR="${CYCLES_RUNTIME_OPTIX_ROOT_DIR}")
 endif()
 
+if(WITH_CYCLES_DEVICE_HIPRT)
+      list(APPEND INC
+       ../../../extern/hiprt
+      )
+      add_definitions(-DWITH_HIP)
+      add_definitions(-DWITH_HIPRT)
+endif()
+
 set(SRC_BASE
   device.cpp
   denoise.cpp
@@ -64,6 +72,13 @@ set(SRC_HIP
   hip/queue.h
   hip/util.cpp
   hip/util.h
+)
+
+set(SRC_HIPRT
+  hiprt/device_impl.cpp
+  hiprt/device_impl.h
+  hiprt/queue.cpp
+  hiprt/queue.h
 )
 
 set(SRC_ONEAPI
@@ -124,6 +139,7 @@ set(SRC
   ${SRC_CPU}
   ${SRC_CUDA}
   ${SRC_HIP}
+  ${SRC_HIPRT}
   ${SRC_DUMMY}
   ${SRC_MULTI}
   ${SRC_OPTIX}
@@ -153,6 +169,10 @@ if(WITH_CYCLES_DEVICE_HIP AND WITH_HIP_DYNLOAD)
   )
 endif()
 
+if(WITH_CYCLES_DEVICE_HIP)
+  add_definitions(-DWITH_HIP)
+  add_definitions(-DWITH_HIPRT)
+endif()
 if(WITH_CYCLES_DEVICE_METAL)
   list(APPEND LIB
     ${METAL_LIBRARY}
@@ -208,6 +228,7 @@ source_group("cpu" FILES ${SRC_CPU})
 source_group("cuda" FILES ${SRC_CUDA})
 source_group("dummy" FILES ${SRC_DUMMY})
 source_group("hip" FILES ${SRC_HIP})
+source_group("hiprt" FILES ${SRC_HIPRT})
 source_group("multi" FILES ${SRC_MULTI})
 source_group("metal" FILES ${SRC_METAL})
 source_group("optix" FILES ${SRC_OPTIX})

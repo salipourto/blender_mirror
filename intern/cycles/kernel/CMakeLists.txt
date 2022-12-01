@@ -28,6 +28,10 @@ set(SRC_KERNEL_DEVICE_HIP
   device/hip/kernel.cpp
 )
 
+set(SRC_KERNEL_DEVICE_HIPRT
+  device/hiprt/kernel.cpp
+)
+
 set(SRC_KERNEL_DEVICE_METAL
   device/metal/kernel.metal
 )
@@ -77,6 +81,16 @@ set(SRC_KERNEL_DEVICE_HIP_HEADERS
   device/hip/compat.h
   device/hip/config.h
   device/hip/globals.h
+)
+
+set(SRC_KERNEL_DEVICE_HIPRT_HEADERS
+  device/hiprt/bvh.h
+  device/hiprt/compat.h
+  device/hiprt/config.h
+  device/hiprt/common.h
+  device/hiprt/globals.h
+  device/hiprt/hiprt_device.h
+  device/hiprt/hiprt_kernels.h
 )
 
 set(SRC_KERNEL_DEVICE_OPTIX_HEADERS
@@ -951,6 +965,7 @@ cycles_add_library(cycles_kernel "${LIB}"
   ${SRC_KERNEL_DEVICE_CPU}
   ${SRC_KERNEL_DEVICE_CUDA}
   ${SRC_KERNEL_DEVICE_HIP}
+  ${SRC_KERNEL_DEVICE_HIPRT}
   ${SRC_KERNEL_DEVICE_OPTIX}
   ${SRC_KERNEL_DEVICE_METAL}
   ${SRC_KERNEL_HEADERS}
@@ -958,6 +973,7 @@ cycles_add_library(cycles_kernel "${LIB}"
   ${SRC_KERNEL_DEVICE_GPU_HEADERS}
   ${SRC_KERNEL_DEVICE_CUDA_HEADERS}
   ${SRC_KERNEL_DEVICE_HIP_HEADERS}
+  ${SRC_KERNEL_DEVICE_HIPRT_HEADERS}
   ${SRC_KERNEL_DEVICE_OPTIX_HEADERS}
   ${SRC_KERNEL_DEVICE_METAL_HEADERS}
   ${SRC_KERNEL_DEVICE_ONEAPI_HEADERS}
@@ -971,6 +987,7 @@ source_group("device\\cpu" FILES ${SRC_KERNEL_DEVICE_CPU} ${SRC_KERNEL_DEVICE_CP
 source_group("device\\cuda" FILES ${SRC_KERNEL_DEVICE_CUDA} ${SRC_KERNEL_DEVICE_CUDA_HEADERS})
 source_group("device\\gpu" FILES ${SRC_KERNEL_DEVICE_GPU_HEADERS})
 source_group("device\\hip" FILES ${SRC_KERNEL_DEVICE_HIP} ${SRC_KERNEL_DEVICE_HIP_HEADERS})
+source_group("device\\hiprt" FILES ${SRC_KERNEL_DEVICE_HIPRT} ${SRC_KERNEL_DEVICE_HIPRT_HEADERS})
 source_group("device\\optix" FILES ${SRC_KERNEL_DEVICE_OPTIX} ${SRC_KERNEL_DEVICE_OPTIX_HEADERS})
 source_group("device\\metal" FILES ${SRC_KERNEL_DEVICE_METAL} ${SRC_KERNEL_DEVICE_METAL_HEADERS})
 source_group("device\\oneapi" FILES ${SRC_KERNEL_DEVICE_ONEAPI} ${SRC_KERNEL_DEVICE_ONEAPI_HEADERS})
@@ -993,8 +1010,8 @@ endif()
 if(WITH_CYCLES_HIP)
   add_dependencies(cycles_kernel cycles_kernel_hip)
 endif()
-if(WITH_CYCLES_DEVICE_ONEAPI)
-  add_dependencies(cycles_kernel cycles_kernel_oneapi)
+if(WITH_CYCLES_DEVICE_HIPRT)
+# -D __HIPRT__
 endif()
 
 # Install kernel source for runtime compilation
@@ -1008,6 +1025,9 @@ delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_CUDA_HEADERS}" 
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_GPU_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/gpu)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIP}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hip)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIP_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hip)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIPRT}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hiprt)
+delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIPRT_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hiprt)
+#delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "device\\hiprt\\hiprt" ${CYCLES_INSTALL_PATH}/source/hiprt)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_OPTIX}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_OPTIX_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_METAL}" ${CYCLES_INSTALL_PATH}/source/kernel/device/metal)

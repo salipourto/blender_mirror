@@ -88,6 +88,11 @@ if(WITH_SDL)
   add_definitions(-DWITH_SDL)
 endif()
 
+if(WITH_CYCLES_DEVICE_HIPRT)
+  link_directories(../../extern/hiprt)
+  add_definitions(-DWITH_HIPRT)
+endif()
+
 if(WITH_BINRELOC)
   list(APPEND INC ${BINRELOC_INCLUDE_DIRS})
   add_definitions(-DWITH_BINRELOC)
@@ -1067,6 +1072,17 @@ elseif(WIN32)
     )
   endif()
 
+    if(WITH_CYCLES_DEVICE_HIPRT)
+    install(
+      FILES
+      ../../extern/hiprt/hiprt64.dll
+      ../../extern/hiprt/hiprtc0503.dll
+      ../../extern/hiprt/hiprtc-builtins0503.dll
+      ../../extern/hiprt/amd_comgr0503.dll
+      DESTINATION ${TARGETDIR_LIB}
+    )
+  endif()
+
   if(WITH_BLENDER_THUMBNAILER)
     install(
       TARGETS BlendThumb
@@ -1295,6 +1311,10 @@ install(
 add_dependencies(blender makesdna)
 target_link_libraries(blender ${LIB})
 unset(LIB)
+
+if(WITH_CYCLES_DEVICE_HIPRT)
+  target_link_libraries(blender hiprt64.lib)
+endif()
 
 setup_platform_linker_flags(blender)
 setup_platform_linker_libs(blender)

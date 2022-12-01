@@ -61,7 +61,7 @@ ccl_device_inline bool operator<(const int3 a, const int3 b)
 {
   return a.x < b.x && a.y < b.y && a.z < b.z;
 }
-
+#if !defined(__HIPCC_RTC__)
 ccl_device_inline int3 operator+(const int3 a, const int3 b)
 {
 #  ifdef __KERNEL_SSE__
@@ -79,6 +79,7 @@ ccl_device_inline int3 operator-(const int3 a, const int3 b)
   return make_int3(a.x - b.x, a.y - b.y, a.z - b.z);
 #  endif
 }
+#endif
 #endif /* !__KERNEL_METAL__ */
 
 CCL_NAMESPACE_END

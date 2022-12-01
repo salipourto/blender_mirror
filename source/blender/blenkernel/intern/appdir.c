@@ -214,7 +214,7 @@ bool BKE_appdir_folder_caches(char *r_path, const size_t path_len)
 
 #ifdef WIN32
   BLI_path_join(
-      r_path, path_len, caches_root_path, "Blender Foundation", "Blender", "Cache", SEP_STR);
+      r_path, path_len, caches_root_path, "BlenderFoundation", "Blender", "Cache", SEP_STR);
 #elif defined(__APPLE__)
   BLI_path_join(r_path, path_len, caches_root_path, "Blender", SEP_STR);
 #else /* __linux__ */

@@ -5,6 +5,7 @@
 
 #  include "device/hip/kernel.h"
 #  include "device/hip/device_impl.h"
+#  include "device/hiprt/device_impl.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -19,6 +20,10 @@ void HIPDeviceKernels::load(HIPDevice *device)
     if (i == DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL) {
       continue;
     }
+#  if !defined(OFFLINE_COMPILER)
+    DeviceKernel current_kernel = static_cast<DeviceKernel>(i);
+    hipModule = device->get_hip_module(current_kernel);
+#  endif
 
     const std::string function_name = std::string("kernel_gpu_") +
                                       device_kernel_as_string((DeviceKernel)i);

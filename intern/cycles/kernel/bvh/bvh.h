@@ -17,9 +17,12 @@
 #  include "kernel/device/metal/bvh.h"
 #elif defined(__KERNEL_OPTIX__)
 #  include "kernel/device/optix/bvh.h"
+#elif defined(__HIPRT__) && ( defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
+#	include "kernel/device/hiprt/bvh.h"
 #else
 #  define __BVH2__
 #endif
+
 
 CCL_NAMESPACE_BEGIN
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Copyright 2011-2022 Blender Foundation */
+#pragma once
 
 #ifdef WITH_HIP
 
@@ -74,9 +75,9 @@ class HIPDevice : public Device {
 
   bool use_adaptive_compilation();
 
-  string compile_kernel_get_common_cflags(const uint kernel_features);
+  virtual string compile_kernel_get_common_cflags(const uint kernel_features);
 
-  string compile_kernel(const uint kernel_features, const char *name, const char *base = "hip");
+  virtual string compile_kernel(const uint kernel_features, const char *name, const char *base = "hip");
 
   virtual bool load_kernels(const uint kernel_features) override;
   void reserve_local_memory(const uint kernel_features);
@@ -119,6 +120,8 @@ class HIPDevice : public Device {
   virtual bool should_use_graphics_interop() override;
 
   virtual unique_ptr<DeviceQueue> gpu_queue_create() override;
+
+  virtual hipModule_t get_hip_module(DeviceKernel kernel_name);
 
   int get_num_multiprocessors();
   int get_max_num_threads_per_multiprocessor();

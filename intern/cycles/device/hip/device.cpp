@@ -13,6 +13,10 @@
 #  include "util/windows.h"
 #endif /* WITH_HIP */
 
+#ifdef WITH_HIPRT
+#  include "device/hiprt/device_impl.h"
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 bool device_hip_init()
@@ -65,7 +69,10 @@ bool device_hip_init()
 
 Device *device_hip_create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 {
-#ifdef WITH_HIP
+#ifdef WITH_HIPRT
+  return new HIPRTDevice(info, stats, profiler);
+
+#elif WITH_HIP
   return new HIPDevice(info, stats, profiler);
 #else
   (void)info;

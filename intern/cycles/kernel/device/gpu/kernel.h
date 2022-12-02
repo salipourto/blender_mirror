@@ -198,9 +198,8 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
   const int global_index = ccl_gpu_global_id_x();
 
   if (global_index < work_size) {
-	  SET_SHARED_MEMORY()
     const int state = (path_index_array) ? path_index_array[global_index] : global_index;
-    ccl_gpu_kernel_call(integrator_shade_background(kg, state, render_buffer));
+    ccl_gpu_kernel_call(integrator_shade_background(NULL, state, render_buffer));
   }
 }
 ccl_gpu_kernel_postfix
@@ -214,9 +213,8 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
   const int global_index = ccl_gpu_global_id_x();
 
   if (global_index < work_size) {
-	  SET_SHARED_MEMORY()
     const int state = (path_index_array) ? path_index_array[global_index] : global_index;
-    ccl_gpu_kernel_call(integrator_shade_light(kg, state, render_buffer));
+    ccl_gpu_kernel_call(integrator_shade_light(NULL, state, render_buffer));
   }
 }
 ccl_gpu_kernel_postfix
@@ -230,14 +228,11 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
   const int global_index = ccl_gpu_global_id_x();
 
   if (global_index < work_size) {
-	  SET_SHARED_MEMORY()
     const int state = (path_index_array) ? path_index_array[global_index] : global_index;
-    ccl_gpu_kernel_call(integrator_shade_shadow(kg, state, render_buffer));
+    ccl_gpu_kernel_call(integrator_shade_shadow(NULL, state, render_buffer));
   }
 }
 ccl_gpu_kernel_postfix
-
-#ifndef __HIPRT__
 
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_surface,
@@ -254,10 +249,11 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 }
 ccl_gpu_kernel_postfix
 
+
 #if defined(__KERNEL_METAL_APPLE__) && defined(__METALRT__)
 constant int __dummy_constant [[function_constant(Kernel_DummyConstant)]];
 #endif
-
+#if !defined(__HIPRT__)
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_surface_raytrace,
                              ccl_global const int *path_index_array,
@@ -306,9 +302,8 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
   const int global_index = ccl_gpu_global_id_x();
 
   if (global_index < work_size) {
-	  SET_SHARED_MEMORY()
     const int state = (path_index_array) ? path_index_array[global_index] : global_index;
-    ccl_gpu_kernel_call(integrator_shade_volume(kg, state, render_buffer));
+    ccl_gpu_kernel_call(integrator_shade_volume(NULL, state, render_buffer));
   }
 }
 ccl_gpu_kernel_postfix

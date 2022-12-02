@@ -94,8 +94,7 @@ hipModule_t HIPRTDevice::get_hip_module(DeviceKernel kernel_name)
 
  #  if !defined(OFFLINE_COMPILER)
   if (kernel_name == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
-      kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
-      kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE ||
+      kernel_name == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE ||
       kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST ||
       kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW ||
       kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE ||
@@ -132,7 +131,9 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt, const string include
 
   if (!path_exists(fatbin_rt)) {
 
-    const char *functionName[] = {"kernel_gpu_integrator_intersect_closest",
+    const char *functionName[] = {"kernel_gpu_integrator_shade_surface_raytrace",
+                                  "kernel_gpu_integrator_shade_surface_mnee",
+                                  "kernel_gpu_integrator_intersect_closest",
                                   "kernel_gpu_integrator_intersect_shadow",
                                   "kernel_gpu_integrator_intersect_volume_stack",
                                   "kernel_gpu_integrator_intersect_subsurface"};
@@ -171,7 +172,7 @@ if (use_lds) {
     vector<uint8_t> intersection_binary;
 
     hiprtError e = hiprtBuildTraceProgram(hiprt_context,
-                                          4,
+                                          6,
                                           functionName,
                                           src_txt.c_str(), //source code
                                           0,               // program name, can be null
@@ -452,21 +453,30 @@ void HIPRTDevice::const_copy_to(const char *name, void *host, size_t size)
     *(hiprtScene *)&data->device_bvh = scene;
   }
 
-  hipModule_t current_module =
-#  ifndef OFFLINE_COMPILER
-      hipModule_rtc
-#  else
-      hipModule
-#  endif
-      ;
+//  hipModule_t current_module =
+//#  ifndef OFFLINE_COMPILER
+//      hipModule_rtc
+//#  else
+//      hipModule
+//#  endif
+//      ;
 
-  hip_assert(hipModuleGetGlobal(&mem, &bytes, current_module, "kernel_params"));
+  hip_assert(hipModuleGetGlobal(&mem, &bytes, hipModule, "kernel_params"));
   assert(bytes == sizeof(KernelParamsHIPRT));
-
+  bool b_rtc = false;
+#  ifndef OFFLINE_COMPILER
+  hipDeviceptr_t mem_rtc;
+  size_t bytes_rtc;
+  b_rtc = true;
+  hip_assert(hipModuleGetGlobal(&mem_rtc, &bytes_rtc, hipModule_rtc, "kernel_params"));
+  assert(bytes_rtc == sizeof(KernelParamsHIPRT));
+  #endif
   /* Update data storage pointers in launch parameters. */
 #  define KERNEL_DATA_ARRAY(data_type, data_name) \
     if (strcmp(name, #data_name) == 0) { \
       hip_assert(hipMemcpyHtoD(mem + offsetof(KernelParamsHIPRT, data_name), host, size)); \
+      if (b_rtc)\
+        hip_assert(hipMemcpyHtoD(mem_rtc + offsetof(KernelParamsHIPRT, data_name), host, size)); \
       return; \
     }
   KERNEL_DATA_ARRAY(KernelData, data)

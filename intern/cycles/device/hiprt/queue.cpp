@@ -26,7 +26,6 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
 
   bool hiprt_shaders = (kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
                         kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE ||
                         kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST ||
                         kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW ||
                         kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE ||

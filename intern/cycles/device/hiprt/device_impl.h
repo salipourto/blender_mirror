@@ -10,7 +10,7 @@
 
 #  include "hiprt.h"
 
-#    define OFFLINE_COMPILER
+//#    define OFFLINE_COMPILER
 #    define HWI_RT
 
 //#  define HIPRT_INTERSECTION_FILTERS

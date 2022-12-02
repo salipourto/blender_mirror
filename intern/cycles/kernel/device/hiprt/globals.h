@@ -26,7 +26,7 @@ typedef hiprtGlobalStack Stack;
 #  endif
 #endif
 
-#ifdef HIPRT_SHARED_STACK
+#if defined(HIPRT_SHARED_STACK) && (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
 #  define SET_SHARED_MEMORY() \
     ccl_gpu_shared int shared_stack[SHARED_STACK_SIZE * BLOCK_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
@@ -50,6 +50,7 @@ struct KernelParamsHIPRT {
 
 #ifdef __KERNEL_GPU__
 __constant__ KernelParamsHIPRT kernel_params;
+#if (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
 __attribute__((device)) int global_stack_buffer[1024 * 1024 * 512];
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtCustomFuncTable __table_closest_intersect;
@@ -59,6 +60,7 @@ __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtCustomFuncTable __table_local_intersect;
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtCustomFuncTable __table_volume_intersect;
+#endif
 #endif
 
 /* Abstraction macros */

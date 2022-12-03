@@ -1201,11 +1201,6 @@ int HIPDevice::get_device_default_attribute(hipDeviceAttribute_t attribute, int 
   return value;
 }
 
-hipModule_t HIPDevice::get_hip_module(DeviceKernel kernel_name)
-{
-  return hipModule;
-}
-
 CCL_NAMESPACE_END
 
 #endif

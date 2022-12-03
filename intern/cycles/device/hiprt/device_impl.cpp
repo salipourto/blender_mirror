@@ -51,7 +51,6 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
       HIPDevice(info, stats, profiler)
 {
 
-  hipModule_rtc = 0; 
   hiprt_context = 0;
   scene = 0;
 
@@ -88,35 +87,12 @@ HIPRTDevice::~HIPRTDevice()
   return make_unique<HIPRTDeviceQueue>(this);
 }
 
-hipModule_t HIPRTDevice::get_hip_module(DeviceKernel kernel_name)
-{
-  hipModule_t hipModule_local = hipModule;
-
- #  if !defined(OFFLINE_COMPILER)
-  if (kernel_name == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
-      kernel_name == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE ||
-      kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST ||
-      kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW ||
-      kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE ||
-      kernel_name == DEVICE_KERNEL_INTEGRATOR_INTERSECT_VOLUME_STACK) {
-
-    hipModule_local = hipModule_rtc;
-  }
-  #endif
-  return hipModule_local;
-}
-
 string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
 {
   string cflags = HIPDevice::compile_kernel_get_common_cflags(kernel_features);
 
   cflags += " -D __HIPRT__ ";
-#  ifdef OFFLINE_COMPILER
-  cflags += " -D __OFFLINE_COMPILER__ ";
-#    ifdef HWI_RT
-  cflags += " -D __USE_HWI__ ";
-  #endif
-#  endif
+
   if (use_lds)
     cflags += " -D HIPRT_SHARED_STACK ";
   #  ifdef HIPRT_INTERSECTION_FILTERS
@@ -131,25 +107,39 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt, const string include
 
   if (!path_exists(fatbin_rt)) {
 
-    const char *functionName[] = {"kernel_gpu_integrator_shade_surface_raytrace",
-                                  "kernel_gpu_integrator_shade_surface_mnee",
-                                  "kernel_gpu_integrator_intersect_closest",
-                                  "kernel_gpu_integrator_intersect_shadow",
-                                  "kernel_gpu_integrator_intersect_volume_stack",
-                                  "kernel_gpu_integrator_intersect_subsurface"};
+    vector<const char *> function_names;
+    vector<string> function_names_str;
+
+    for (int i = 0; i < (int)DEVICE_KERNEL_NUM; i++) {
+
+      if (i == DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL) {
+        continue;
+      }
+
+      const string function_name = std::string("kernel_gpu_") +
+                                        device_kernel_as_string((DeviceKernel)i);
+
+      function_names_str.push_back(function_name);
+    }
+
+    for (int i = 0; i < function_names_str.size(); i++) {
+
+      function_names.push_back(function_names_str[i].c_str());
+    }
 
     vector<const char *> rtc_options;
 
+    const string block_size_str = to_string(NUM_BLOCK_THREAD);
+    const string stack_size_str = to_string(LOCAL_STACK_SIZE);
+
+    string block_size_def = "-D BLOCK_SIZE=" + block_size_str;
+    string stack_size_def = "-D SHARED_STACK_SIZE=" + stack_size_str;
+
 if (use_lds) {
 
-      const string block_size_str = to_string(NUM_BLOCK_THREAD);
-      const string stack_size_str = to_string(LOCAL_STACK_SIZE);
+      rtc_options.push_back(block_size_def.c_str());
+      rtc_options.push_back(stack_size_def.c_str());
 
-      string block_size_def = "-D BLOCK_SIZE=" + block_size_str; //this format doesn't work with hiprtc
-      string stack_size_def = "-D SHARED_STACK_SIZE=" + stack_size_str;
-
-      rtc_options.push_back("-D BLOCK_SIZE=256");
-      rtc_options.push_back("-D SHARED_STACK_SIZE=24");
       rtc_options.push_back("-DHIPRT_SHARED_STACK");
     }
 
@@ -172,8 +162,8 @@ if (use_lds) {
     vector<uint8_t> intersection_binary;
 
     hiprtError e = hiprtBuildTraceProgram(hiprt_context,
-                                          6,
-                                          functionName,
+                                          function_names.size(),
+                                          function_names.data(),
                                           src_txt.c_str(), //source code
                                           0,               // program name, can be null
                                           0,
@@ -231,46 +221,12 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   const string include_path = source_path;
   const string fatbin_file = string_printf("cycles_%s_%s_%s", name, arch, kernel_md5.c_str());
   const string fatbin = path_cache_get(path_join("kernels", fatbin_file));
-  const string fatbin_rt = fatbin + "_rtc";
+
   VLOG(1) << "Testing for locally compiled kernel " << fatbin << ".";
-  if (path_exists(fatbin) && path_exists(fatbin_rt)) {
+  if (path_exists(fatbin)){
     VLOG(1) << "Using locally compiled kernel.";
     return fatbin;
   }
-
-  const char *const kernel_ext = "genco";
-  std::string options;
-  options.append("Wno-parentheses-equality -Wno-unused-value --hipcc-func-supp -O3 -ffast-math ");
-
-  options.append(" --amdgpu-target=").append(arch);
-  options.append(" -DWARP_THREADS=32"); //gfx9: 64
-
-
-  if (use_lds) {
-    const int shared_stack_size = LOCAL_STACK_SIZE;
-    const int block_size = NUM_BLOCK_THREAD;
-    string block_size_def = " -DBLOCK_SIZE=" + std::to_string(block_size);
-    string stack_size_def = " -DSHARED_STACK_SIZE=" + std::to_string(shared_stack_size);
-
-    options.append(block_size_def);
-    options.append(stack_size_def);
-    options.append(" -DHIPRT_SHARED_STACK ");
-  }
-
-#  ifdef HIPRT_INTERSECTION_FILTERS
-  options.append(" -DHIPRT_INTERSECTION_FILTERS ");
-#  endif
-
-  options.append(" -D__HIPRT__");
-
-#  ifdef OFFLINE_COMPILER
-#    ifdef HWI_RT
-  options.append(" -D__USE_HWI__");
-#endif
-  options.append(" -D__OFFLINE_COMPILER__");
-#  endif
-  options.append(" -std=c++17 ");
-
 
 #  ifdef _WIN32
   if (!use_adaptive_compilation() && have_precompiled_kernels()) {
@@ -292,73 +248,21 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   }
 #  endif
 
-  /* Compile. */
-  const char *const hipcc = hipewCompilerPath();
-  if (hipcc == NULL) {
-    set_error(
-        "HIP hipcc compiler not found. "
-        "Install HIP toolkit in default location.");
-    return string();
-  }
-
-  const int hipcc_hip_version = hipewCompilerVersion();
-  VLOG(1) << "Found hipcc " << hipcc << ", HIP version " << hipcc_hip_version << ".";
-  if (hipcc_hip_version < 40) {
-    printf(
-        "Unsupported HIP version %d.%d detected, "
-        "you need HIP 4.0 or newer.\n",
-        hipcc_hip_version / 10,
-        hipcc_hip_version % 10);
-    return string();
-  }
-
-  double starttime = time_dt();
-
   path_create_directories(fatbin);
 
   source_path = path_join(path_join(source_path, "kernel"),
                           path_join("device", path_join(base, string_printf("%s.cpp", name))));
 
-  string command = string_printf("%s -%s -I %s --%s %s -o \"%s\"",
-                                 hipcc,
-                                 options.c_str(),
-                                 include_path.c_str(),
-                                 kernel_ext,
-                                 source_path.c_str(),
-                                 fatbin.c_str());
+  printf("Compiling  %s and caching to %s", source_path.c_str(), fatbin.c_str());
 
-  printf("Compiling %sHIP kernel ...\n%s\n",
-         (use_adaptive_compilation()) ? "adaptive " : "",
-         command.c_str());
+  double starttime = time_dt();
 
-#  ifdef _WIN32
-  command = "call " + command;
-#  endif
-  if (!path_exists(fatbin)){
-    if (system(command.c_str()) != 0) {
-      set_error(
-          "Failed to execute compilation command, "
-          "see console for details.");
-      return string();
-    }
-
-  /* Verify if compilation succeeded */
-  if (!path_exists(fatbin)) {
+if (!compile_RT_kernel(fatbin, include_path, source_path)) {
     set_error(
-        "HIP kernel compilation failed, "
+        "HIP RTC kernel compilation failed, "
         "see console for details.");
     return string();
   }
-}
-
-#  if !defined(OFFLINE_COMPILER)
-if (!compile_RT_kernel(fatbin_rt, include_path, source_path)) {
-		set_error(
-        "HIP RTC kernel compilation failed, "
-        "see console for details.");
-		return string();
-	}
-#  endif
 
   printf("Kernel compilation finished in %.2lfs.\n", time_dt() - starttime);
 
@@ -394,16 +298,6 @@ bool HIPRTDevice::load_kernels(const uint kernel_features)
   hipError_t result;
   
   if (path_read_text(fatbin, fatbin_data)) {
-#   if !defined(OFFLINE_COMPILER)
-    string fatbin_rtc = fatbin + "_rtc";
-    string fatbin_data_rtc;
-    if (path_read_text(fatbin_rtc, fatbin_data_rtc)) {
-      result = hipModuleLoadData(&hipModule_rtc, fatbin_data_rtc.c_str());
-      if (result != hipSuccess)
-        set_error(string_printf(
-            "Failed to load HIP_RTC kernel from '%s' (%s)", fatbin_rtc.c_str(), hipewErrorString(result)));
-    }
-#	endif
 
     result = hipModuleLoadData(&hipModule, fatbin_data.c_str());
   }
@@ -446,37 +340,19 @@ void HIPRTDevice::const_copy_to(const char *name, void *host, size_t size)
   hipDeviceptr_t mem;
   size_t bytes;
 
-
   if (strcmp(name, "data") == 0) {
     assert(size <= sizeof(KernelData));
     KernelData *const data = (KernelData *)host;
     *(hiprtScene *)&data->device_bvh = scene;
   }
 
-//  hipModule_t current_module =
-//#  ifndef OFFLINE_COMPILER
-//      hipModule_rtc
-//#  else
-//      hipModule
-//#  endif
-//      ;
 
   hip_assert(hipModuleGetGlobal(&mem, &bytes, hipModule, "kernel_params"));
   assert(bytes == sizeof(KernelParamsHIPRT));
-  bool b_rtc = false;
-#  ifndef OFFLINE_COMPILER
-  hipDeviceptr_t mem_rtc;
-  size_t bytes_rtc;
-  b_rtc = true;
-  hip_assert(hipModuleGetGlobal(&mem_rtc, &bytes_rtc, hipModule_rtc, "kernel_params"));
-  assert(bytes_rtc == sizeof(KernelParamsHIPRT));
-  #endif
-  /* Update data storage pointers in launch parameters. */
+
 #  define KERNEL_DATA_ARRAY(data_type, data_name) \
     if (strcmp(name, #data_name) == 0) { \
-      hip_assert(hipMemcpyHtoD(mem + offsetof(KernelParamsHIPRT, data_name), host, size)); \
-      if (b_rtc)\
-        hip_assert(hipMemcpyHtoD(mem_rtc + offsetof(KernelParamsHIPRT, data_name), host, size)); \
+        hip_assert(hipMemcpyHtoD(mem + offsetof(KernelParamsHIPRT, data_name), host, size)); \
       return; \
     }
   KERNEL_DATA_ARRAY(KernelData, data)
@@ -487,7 +363,6 @@ void HIPRTDevice::const_copy_to(const char *name, void *host, size_t size)
   KERNEL_DATA_ARRAY(int2, __curve_intersect_data)
 #  include "kernel/data_arrays.h"
 #  undef KERNEL_DATA_ARRAY
-
 
 }
 
@@ -1038,13 +913,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
 
   //setting up function pointers
 
-    hipModule_t current_hipModule =
-#    ifdef OFFLINE_COMPILER
-      hipModule
-#    else
-      hipModule_rtc
-#    endif
-      ;
+    hipModule_t current_hipModule = hipModule;
 
     if (packed_type.size()) {
       size_t data_size = packed_type.size();

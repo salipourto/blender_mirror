@@ -121,8 +121,6 @@ class HIPDevice : public Device {
 
   virtual unique_ptr<DeviceQueue> gpu_queue_create() override;
 
-  virtual hipModule_t get_hip_module(DeviceKernel kernel_name);
-
   int get_num_multiprocessors();
   int get_max_num_threads_per_multiprocessor();
 

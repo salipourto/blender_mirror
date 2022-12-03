@@ -10,9 +10,6 @@
 
 #  include "hiprt.h"
 
-//#    define OFFLINE_COMPILER
-#    define HWI_RT
-
 //#  define HIPRT_INTERSECTION_FILTERS
 //#  define KERNEL_TIME
 
@@ -59,8 +56,6 @@ class HIPRTDevice : public HIPDevice {
 
  public:
 
-  hipModule_t hipModule_rtc;
-
   virtual BVHLayoutMask get_bvh_layout_mask() const override;
 
   HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler);
@@ -80,12 +75,9 @@ class HIPRTDevice : public HIPDevice {
   hiprtGeometryBuildInput prepare_triangle_blas(BVHHIPRT *bvh, Mesh *mesh);
   hiprtGeometryBuildInput prepare_curve_blas(BVHHIPRT *bvh, Hair *hair);
   hiprtGeometryBuildInput prepare_point_blas(BVHHIPRT *bvh, PointCloud *pointcloud);
-  
-  virtual hipModule_t get_hip_module(DeviceKernel kernel_name) override;
 
   hiprtContext get_hiprt_context()
   {
-
     return hiprt_context;
   }
 

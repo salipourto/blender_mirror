@@ -71,7 +71,6 @@ Device *device_hip_create(const DeviceInfo &info, Stats &stats, Profiler &profil
 {
 #ifdef WITH_HIPRT
   return new HIPRTDevice(info, stats, profiler);
-
 #elif WITH_HIP
   return new HIPDevice(info, stats, profiler);
 #else

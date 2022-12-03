@@ -42,8 +42,9 @@ struct ccl_try_align(16) float4
 
 ccl_device_inline float4 make_float4(float x, float y, float z, float w);
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-
+#if !defined(__HIPCC_RTC__)
 ccl_device_inline float4 make_float4(float f);
+#endif
 ccl_device_inline float4 make_float4(const int4 i);
 ccl_device_inline void print_float4(ccl_private const char *label, const float4 a);
 

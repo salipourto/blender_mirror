@@ -44,8 +44,9 @@ struct ccl_try_align(16) int4
 
 ccl_device_inline int4 make_int4(int x, int y, int z, int w);
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-
+#if !defined(__HIPCC_RTC__)
 ccl_device_inline int4 make_int4(int i);
+#endif
 ccl_device_inline int4 make_int4(const float3 f);
 ccl_device_inline int4 make_int4(const float4 f);
 ccl_device_inline void print_int4(ccl_private const char *label, const int4 a);

@@ -29,25 +29,23 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   }
 
   hiprtRay ray_hip;
-  ray_hip.origin = ray->P;
-  ray_hip.direction = ray->D;
-  ray_hip.maxT = ray->tmax;
-  ray_hip.time = ray->time;
+
+  
+  SET_HIPRT_RAY(ray_hip, ray)
 
   RayPayload payload;
   payload.self = ray->self;
   payload.kg = kg;
   payload.visibility = visibility;
-  payload.prim_id = PRIMITIVE_NONE;
   payload.prim_type = PRIMITIVE_NONE;
-  payload.ray_tmin = ray->tmin;
+  payload.ray_time = ray->time;
 
   hiprtHit hit = {};
 
   GET_TRAVERSAL_STACK()
 
 #ifndef HIPRT_INTERSECTION_FILTERS
-  GET_TRAVERSAL_ANY_HIT(__table_closest_intersect)
+  GET_TRAVERSAL_ANY_HIT(__table_closest_intersect, 0)
   hit = traversal.getNextHit();
   bool b_hit = false;
 
@@ -80,17 +78,16 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   return b_hit;
 #else
   if (visibility & PATH_RAY_SHADOW_OPAQUE) {
-    GET_TRAVERSAL_ANY_HIT(__table_closest_intersect)
+    GET_TRAVERSAL_ANY_HIT(__table_closest_intersect, 0)
     hit = traversal.getNextHit();
   }
   else {
-    GET_TRAVERSAL_CLOSEST_HIT(__table_closest_intersect)
+    GET_TRAVERSAL_CLOSEST_HIT(__table_closest_intersect, 0)
     hit = traversal.getNextHit();
   }
   if (hit.hasHit()) {
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
-      isect->prim = payload.prim_id;
       isect->type = payload.prim_type;
     }
     return true;
@@ -118,7 +115,6 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   float3 P = ray->P;
   float3 dir = bvh_clamp_direction(ray->D);
   float3 idir = bvh_inverse_direction(dir);
-  float isect_t = ray->tmax;
 
   if (local_isect != NULL) {
     local_isect->num_hits = 0;
@@ -132,8 +128,8 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   hiprtRay ray_hip;
   ray_hip.origin = P;
   ray_hip.direction = dir;
-  ray_hip.maxT = isect_t;
-  ray_hip.time = ray->time;
+  ray_hip.maxT = ray->tmax;
+  ray_hip.minT = ray->tmin;
 
   LocalPayload payload = {0};
   payload.kg = kg;
@@ -143,7 +139,7 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   payload.is_hit = false;
   payload.lcg_state = lcg_state;
   payload.local_isect = local_isect;
-  payload.ray_tmin = ray->tmin;
+
   GET_TRAVERSAL_STACK()
 
   void *local_geom = (void *)(kernel_data_fetch(__instance_geometry, local_object));
@@ -162,18 +158,15 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
     if (!hit.hasHit() || (hiprtTraversalStateStackOverflow == traversal.getCurrentState()))
       return payload.is_hit;
 
-    get_next = local_intersection_filter(
-        ray_hip, 0, hit.primID, 0, &payload, hit.uv, hit.normal, hit.t);
+    get_next = local_intersection_filter(ray_hip, 0, &payload, hit);
   }
   return payload.is_hit;
 
 #  else
 
-  hiprtCustomFuncSet table = *(hiprtCustomFuncSet *)__table_local_intersect;
-
 #    ifdef HIPRT_SHARED_STACK
   hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(
-      local_geom, ray_hip, table, stack, hiprtTraversalHintDefault, &payload);
+      local_geom, ray_hip, stack, hiprtTraversalHintDefault, &payload, __table_local_intersect, 2);
 #    else
   hiprtGeomTraversalAnyHit traversal(
       local_geom, ray_hip, table, hiprtTraversalHintDefault, &payload);
@@ -225,21 +218,19 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   }
 
   hiprtRay ray_hip;
-  ray_hip.origin = ray->P;
-  ray_hip.direction = ray->D;
-  ray_hip.maxT = ray->tmax;
-  ray_hip.time = ray->time;
+  
+  SET_HIPRT_RAY(ray_hip, ray)
 
   RayPayload payload;
   payload.self = ray->self;
   payload.kg = kg;
   payload.visibility = visibility;
-  payload.ray_tmin = ray->tmin;
+  payload.ray_time = ray->time;
 
   GET_TRAVERSAL_STACK()
 
 #  ifndef HIPRT_INTERSECTION_FILTERS
-  GET_TRAVERSAL_ANY_HIT(__table_volume_intersect)  // no custom intersection for volume rendering
+  GET_TRAVERSAL_ANY_HIT(__table_volume_intersect, 3)  // no custom intersection for volume rendering
   hiprtHit hit = traversal_simple.getNextHit();
 
   bool b_hit = false;
@@ -264,9 +255,16 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   }
   return b_hit;
 #  else  // HIPRT_CUSTOM_FUNC
-  GET_TRAVERSAL_CLOSEST_HIT(__table_volume_intersect)
+  GET_TRAVERSAL_CLOSEST_HIT(__table_volume_intersect, 3)
   hiprtHit hit = traversal.getNextHit();
-  return hit.hasHit();
+  //return hit.hasHit();
+  if (hit.hasHit()) {
+    set_intersect_point(kg, hit, isect);
+    if (isect->type > 1) {  // should be applied only for curves
+      isect->type = payload.prim_type;
+    }
+    return true;
+  }
 #  endif
 }
 #endif /* __VOLUME__ */

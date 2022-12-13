@@ -45,15 +45,15 @@ struct _hiprtGeometry;
 struct _hiprtGeometryCustom;
 struct _hiprtScene;
 struct _hiprtContext;
-struct _hiprtCustomFuncTable;
+struct _hiprtFuncTable;
 
-typedef void*				   hiprtDevicePtr;
-typedef hiprtDevicePtr		   hiprtGeometry;
-typedef hiprtDevicePtr		   hiprtScene;
-typedef uint32_t			   hiprtBuildFlags;
-typedef uint32_t			   hiprtRayMask;
-typedef _hiprtContext*		   hiprtContext;
-typedef _hiprtCustomFuncTable* hiprtCustomFuncTable;
+typedef void*			 hiprtDevicePtr;
+typedef hiprtDevicePtr	 hiprtGeometry;
+typedef hiprtDevicePtr	 hiprtScene;
+typedef uint32_t		 hiprtBuildFlags;
+typedef uint32_t		 hiprtRayMask;
+typedef _hiprtContext*	 hiprtContext;
+typedef _hiprtFuncTable* hiprtFuncTable;
 
 typedef int	  hiprtApiDevice;	// hipDevice, cuDevice
 typedef void* hiprtApiCtx;		// hipCtx, cuCtx
@@ -65,8 +65,8 @@ typedef void* hiprtApiFunction; // hipFunction, cuFunction
  */
 enum : uint32_t
 {
-  hiprtInvalidValue		= ~0u,
-  hiprtMaxCustomFunctions = 65536,
+	hiprtInvalidValue		= ~0u,
+	hiprtFullRayMask		= ~0u,
 };
 
 /** \brief Error codes.
@@ -74,13 +74,13 @@ enum : uint32_t
  */
 enum hiprtError
 {
-  hiprtSuccess				= 0,
-  hiprtErrorNotImplemented	= 1,
-  hiprtErrorInternal			= 2,
-  hiprtErrorOutOfHostMemory	= 3,
-  hiprtErrorOutOfDeviceMemory = 4,
-  hiprtErrorInvalidApiVersion = 5,
-  hiprtErrorInvalidParameter	= 6
+	hiprtSuccess				= 0,
+	hiprtErrorNotImplemented	= 1,
+	hiprtErrorInternal			= 2,
+	hiprtErrorOutOfHostMemory	= 3,
+	hiprtErrorOutOfDeviceMemory = 4,
+	hiprtErrorInvalidApiVersion = 5,
+	hiprtErrorInvalidParameter	= 6
 };
 
 /** \brief Type of geometry/scene build operation.
@@ -89,8 +89,8 @@ enum hiprtError
  * an underlying acceleration structure.
  */
 enum hiprtBuildOperation{
-  hiprtBuildOperationBuild  = 1,
-  hiprtBuildOperationUpdate = 2
+	hiprtBuildOperationBuild  = 1,
+	hiprtBuildOperationUpdate = 2
 };
 
 /** \brief Hint flags for geometry/scene build functions.
@@ -100,11 +100,11 @@ enum hiprtBuildOperation{
  */
 enum hiprtBuildFlagBits
 {
-  hiprtBuildFlagBitPreferFastBuild		= 0,
-  hiprtBuildFlagBitPreferBalancedBuild	= 1,
-  hiprtBuildFlagBitPreferHighQualityBuild = 2,
-  hiprtBuildFlagBitCustomBvhImport		= 3,
-  hiprtBuildFlagBitDisableSpatialSplits	= 1 << 2
+	hiprtBuildFlagBitPreferFastBuild		= 0,
+	hiprtBuildFlagBitPreferBalancedBuild	= 1,
+	hiprtBuildFlagBitPreferHighQualityBuild = 2,
+	hiprtBuildFlagBitCustomBvhImport		= 3,
+	hiprtBuildFlagBitDisableSpatialSplits	= 1 << 2
 };
 
 /** \brief Geometric primitive type.
@@ -115,8 +115,8 @@ enum hiprtBuildFlagBits
  */
 enum hiprtPrimitiveType
 {
-  hiprtPrimitiveTypeTriangleMesh,
-  hiprtPrimitiveTypeAABBList
+	hiprtPrimitiveTypeTriangleMesh,
+	hiprtPrimitiveTypeAABBList
 };
 
 /** \brief Transformation frame type.
@@ -124,8 +124,8 @@ enum hiprtPrimitiveType
  */
 enum hiprtFrameType
 {
-  hiprtFrameTypeSRT,
-  hiprtFrameTypeMatrix
+	hiprtFrameTypeSRT,
+	hiprtFrameTypeMatrix
 };
 
 /** \brief Bvh node type.
@@ -133,10 +133,10 @@ enum hiprtFrameType
  */
 enum hiprtBvhNodeType
 {
-  /*!< Leaf node */
-  hiprtBvhNodeTypeInternal = 0,
-  /*!< Internal node */
-  hiprtBvhNodeTypeLeaf = 1,
+	/*!< Leaf node */
+	hiprtBvhNodeTypeInternal = 0,
+	/*!< Internal node */
+	hiprtBvhNodeTypeLeaf = 1,
 };
 
 /** \brief Ray data structure.
@@ -144,14 +144,14 @@ enum hiprtBvhNodeType
  */
 struct HIPRT_ALIGN( 32 ) hiprtRay
 {
-  /*!< Ray origin */
-  hiprtFloat3 origin;
-  /*!< Ray time for motion blur */
-  float time;
-  /*!< Ray direction */
-  hiprtFloat3 direction;
-  /*!< Ray maximum distance */
-  float maxT;
+	/*!< Ray origin */
+	hiprtFloat3 origin;
+	/*!< Ray maximum distance */
+	float minT = 0.0f;
+	/*!< Ray direction */
+	hiprtFloat3 direction;
+	/*!< Ray maximum distance */
+	float maxT = FLT_MAX;
 };
 static_assert( sizeof( hiprtRay ) == 32 );
 
@@ -160,71 +160,35 @@ static_assert( sizeof( hiprtRay ) == 32 );
  */
 struct HIPRT_ALIGN( 32 ) hiprtHit
 {
-  /*!< Instance ID */
-  uint32_t instanceID;
-  /*!< Primitive ID */
-  uint32_t primID;
-  /*!< Texture coordinates */
-  hiprtFloat2 uv;
-  /*!< Geeometric normal (not normalized) */
-  hiprtFloat3 normal;
-  /*!< Distance */
-  float t;
+	/*!< Instance ID */
+	uint32_t instanceID = hiprtInvalidValue;
+	/*!< Primitive ID */
+	uint32_t primID = hiprtInvalidValue;
+	/*!< Texture coordinates */
+	hiprtFloat2 uv;
+	/*!< Geeometric normal (not normalized) */
+	hiprtFloat3 normal;
+	/*!< Distance */
+	float t = -1.0f;
 };
 static_assert( sizeof( hiprtHit ) == 32 );
 
-/** \brief Insersection function for custom primitives.
- *
- * \param ray Ray.
- * \param primID Primtive ID.
- * \param data User data.
- * \param payload Payload for additional outputs.
- * \param uv Output texture coordinates.
- * \param normal Output normal.
- * \param t Output distance.
- * \return A flag indicating hit.
- */
-typedef bool ( *hiprtIntersectFunc )(
-  const hiprtRay& ray,
-  uint32_t		instanceID,
-  uint32_t		primID,
-  const void*		data,
-  void*			payload,
-  hiprtFloat2&	uv,
-  hiprtFloat3&	normal,
-  float&			t );
-
-/** \brief Filter function for filtering intersections.
- *
- * \param ray Ray.
- * \param instanceID Instance ID.
- * \param primID Primtive ID.
- * \param uv Texture coordinates.
- * \param normal Normal.
- * \param t Distance.
- * \param data User data.
- * \param payload Payload for additional outputs.
- * \return A flag indicating the hit is ignored.
- */
-typedef bool ( *hiprtFilterFunc )(
-  const hiprtRay& ray,
-  uint32_t		instanceID,
-  uint32_t		primID,
-  const void*		data,
-  void*			payload,
-  hiprtFloat2		uv,
-  hiprtFloat3		normal,
-  float			t );
-
-/** \brief Set of functions for custom primitives.
+/** \brief Set of device data pointers for custom functions.
  *
  */
-struct hiprtCustomFuncSet
+struct hiprtFuncDataSet
 {
-  hiprtIntersectFunc intersectFunc = nullptr;
-  const void*		   intersectFuncData;
-  hiprtFilterFunc	   filterFunc = nullptr;
-  const void*		   filterFuncData;
+	const void* intersectFuncData = nullptr;
+	const void* filterFuncData	  = nullptr;
+};
+
+/** \brief Set of custom function names.
+ *
+ */
+struct hiprtFuncNameSet
+{
+	const char* intersectFuncName = nullptr;
+	const char* filterFuncName	  = nullptr;
 };
 
 /** \brief Device type.
@@ -232,10 +196,10 @@ struct hiprtCustomFuncSet
  */
 enum hiprtDeviceType
 {
-  /*!< AMD device */
-  hiprtDeviceAMD,
-  /*!< Nvidia device */
-  hiprtDeviceNVIDIA,
+	/*!< AMD device */
+	hiprtDeviceAMD,
+	/*!< Nvidia device */
+	hiprtDeviceNVIDIA,
 };
 
 /** \brief Context creation input.
@@ -243,12 +207,12 @@ enum hiprtDeviceType
  */
 struct hiprtContextCreationInput
 {
-  /*!< HIPRT API context */
-  hiprtApiCtx ctxt;
-  /*!< HIPRT API device */
-  hiprtApiDevice device;
-  /*!< HIPRT API device type */
-  hiprtDeviceType deviceType;
+	/*!< HIPRT API context */
+	hiprtApiCtx ctxt;
+	/*!< HIPRT API device */
+	hiprtApiDevice device;
+	/*!< HIPRT API device type */
+	hiprtDeviceType deviceType;
 };
 
 /** \brief Various flags controlling scene/geometry build process.
@@ -256,8 +220,8 @@ struct hiprtContextCreationInput
  */
 struct hiprtBuildOptions
 {
-  /*!< Build flags */
-  hiprtBuildFlags buildFlags;
+	/*!< Build flags */
+	hiprtBuildFlags buildFlags;
 };
 
 /** \brief Triangle mesh primitive.
@@ -269,19 +233,19 @@ struct hiprtBuildOptions
  */
 struct hiprtTriangleMeshPrimitive
 {
-  /*!< Device pointer to vertex data */
-  hiprtDevicePtr vertices;
-  /*!< Number of vertices in vertex array */
-  uint32_t vertexCount;
-  /*!< Stride in bytes between two vertices */
-  uint32_t vertexStride;
+	/*!< Device pointer to vertex data */
+	hiprtDevicePtr vertices;
+	/*!< Number of vertices in vertex array */
+	uint32_t vertexCount;
+	/*!< Stride in bytes between two vertices */
+	uint32_t vertexStride;
 
-  /*!< Device pointer to index data */
-  hiprtDevicePtr triangleIndices;
-  /*!< Number of trinagles in index array */
-  uint32_t triangleCount;
-  /*!< Stride in bytes between two triangles */
-  uint32_t triangleStride;
+	/*!< Device pointer to index data */
+	hiprtDevicePtr triangleIndices;
+	/*!< Number of trinagles in index array */
+	uint32_t triangleCount;
+	/*!< Stride in bytes between two triangles */
+	uint32_t triangleStride;
 };
 
 /** \brief AABB list primitive.
@@ -293,12 +257,12 @@ struct hiprtTriangleMeshPrimitive
  */
 struct hiprtAABBListPrimitive
 {
-  /*!< Device pointer to AABB data */
-  hiprtDevicePtr aabbs;
-  /*!< Number of AABBs in the array */
-  uint32_t aabbCount;
-  /*!< Stride in bytes between two AABBs */
-  uint32_t aabbStride;
+	/*!< Device pointer to AABB data */
+	hiprtDevicePtr aabbs;
+	/*!< Number of AABBs in the array */
+	uint32_t aabbCount;
+	/*!< Stride in bytes between two AABBs */
+	uint32_t aabbStride;
 };
 
 /** \brief Bvh node for custom import Bvh.
@@ -306,14 +270,14 @@ struct hiprtAABBListPrimitive
  */
 struct HIPRT_ALIGN( 64 ) hiprtBvhNode
 {
-  /*!< Child indices (empty slot needs to be marked by hiprtInvalidValue) */
-  uint32_t childIndices[4];
-  /*!< Child node types */
-  hiprtBvhNodeType childNodeTypes[4];
-  /*!< Node bounding box min */
-  hiprtFloat3 boundingBoxMin;
-  /*!< Node bounding box max */
-  hiprtFloat3 boundingBoxMax;
+	/*!< Child indices (empty slot needs to be marked by hiprtInvalidValue) */
+	uint32_t childIndices[4];
+	/*!< Child node types */
+	hiprtBvhNodeType childNodeTypes[4];
+	/*!< Node bounding box min */
+	hiprtFloat3 boundingBoxMin;
+	/*!< Node bounding box max */
+	hiprtFloat3 boundingBoxMax;
 };
 static_assert( sizeof( hiprtBvhNode ) == 64 );
 
@@ -322,10 +286,10 @@ static_assert( sizeof( hiprtBvhNode ) == 64 );
  */
 struct hiprtBvhNodeList
 {
-  /*!< Array of hiprtBvhNode's */
-  hiprtDevicePtr nodes;
-  /*!< Number of nodes */
-  uint32_t nodeCount;
+	/*!< Array of hiprtBvhNode's */
+	hiprtDevicePtr nodes;
+	/*!< Number of nodes */
+	uint32_t nodeCount;
 };
 
 /** \brief Input for geometry build/update operation.
@@ -335,26 +299,26 @@ struct hiprtBvhNodeList
  */
 struct hiprtGeometryBuildInput
 {
-  /*!< Primitive type */
-  hiprtPrimitiveType type;
-  /*!< Index to the custom function table */
-  uint32_t customFuncSetIndex = hiprtInvalidValue;
-  /*!< Defines the following union */
-  union
-  {
-    struct
-    {
-      /*!< Triangle mesh */
-      hiprtTriangleMeshPrimitive* primitive;
-    } triangleMesh;
-    struct
-    {
-      /*!< Bounding boxes of custom primitives */
-      hiprtAABBListPrimitive* primitive;
-    } aabbList;
-  };
-  /*!< Custom Bvh nodes (optional) */
-  hiprtBvhNodeList* nodes;
+	/*!< Primitive type */
+	hiprtPrimitiveType type;
+	/*!< Geometry type used for custom function table */
+	uint32_t geomType = hiprtInvalidValue;
+	/*!< Defines the following union */
+	union
+	{
+		struct
+		{
+			/*!< Triangle mesh */
+			hiprtTriangleMeshPrimitive* primitive;
+		} triangleMesh;
+		struct
+		{
+			/*!< Bounding boxes of custom primitives */
+			hiprtAABBListPrimitive* primitive;
+		} aabbList;
+	};
+	/*!< Custom Bvh nodes (optional) */
+	hiprtBvhNodeList* nodes;
 };
 
 /** \brief Build input for the scene.
@@ -376,22 +340,22 @@ struct hiprtGeometryBuildInput
  */
 struct hiprtSceneBuildInput
 {
-  /*!< Array of instanceCount pointers to geometries */
-  hiprtDevicePtr instanceGeometries;
-  /*!< Array of instanceCount transform headers (optional: per object frame assumed if NULL) */
-  hiprtDevicePtr instanceTransformHeaders;
-  /*!< Array of frameCount frames (supposed to be ordered according to time) */
-  hiprtDevicePtr instanceFrames;
-  /*!< Per object bit masks for instance masking (optional: if NULL masks treated as 0xFFFFFFFF) */
-  hiprtDevicePtr instanceMasks;
-  /*!< Custom Bvh nodes (optional) */
-  hiprtBvhNodeList* nodes;
-  /*!< Number of instances */
-  uint32_t instanceCount;
-  /*!< Number of frames (such that instanceCount <= frameCount) */
-  uint32_t frameCount;
-  /*!< Frame type (SRT or matrix) */
-  hiprtFrameType frameType = hiprtFrameTypeSRT;
+	/*!< Array of instanceCount pointers to geometries */
+	hiprtDevicePtr instanceGeometries;
+	/*!< Array of instanceCount transform headers (optional: per object frame assumed if NULL) */
+	hiprtDevicePtr instanceTransformHeaders;
+	/*!< Array of frameCount frames (supposed to be ordered according to time) */
+	hiprtDevicePtr instanceFrames;
+	/*!< Per object bit masks for instance masking (optional: if NULL masks treated as hiprtFullRayMask) */
+	hiprtDevicePtr instanceMasks;
+	/*!< Custom Bvh nodes (optional) */
+	hiprtBvhNodeList* nodes;
+	/*!< Number of instances */
+	uint32_t instanceCount;
+	/*!< Number of frames (such that instanceCount <= frameCount) */
+	uint32_t frameCount;
+	/*!< Frame type (SRT or matrix) */
+	hiprtFrameType frameType = hiprtFrameTypeSRT;
 };
 
 /** \brief SRT transformation frame.
@@ -401,14 +365,14 @@ struct hiprtSceneBuildInput
  */
 struct HIPRT_ALIGN( 16 ) hiprtFrameSRT
 {
-  /*!< Rotation (axis and angle) */
-  hiprtFloat4 rotation;
-  /*!< Scale */
-  hiprtFloat3 scale;
-  /*!< Translation */
-  hiprtFloat3 translation;
-  /*!< Frame time */
-  float time;
+	/*!< Rotation (axis and angle) */
+	hiprtFloat4 rotation;
+	/*!< Scale */
+	hiprtFloat3 scale;
+	/*!< Translation */
+	hiprtFloat3 translation;
+	/*!< Frame time */
+	float time;
 };
 static_assert( sizeof( hiprtFrameSRT ) == 48 );
 
@@ -418,10 +382,10 @@ static_assert( sizeof( hiprtFrameSRT ) == 48 );
  */
 struct HIPRT_ALIGN( 64 ) hiprtFrameMatrix
 {
-  /*!< Matrix */
-  float matrix[3][4];
-  /*!< Frame time */
-  float time;
+	/*!< Matrix */
+	float matrix[3][4];
+	/*!< Frame time */
+	float time;
 };
 static_assert( sizeof( hiprtFrameMatrix ) == 64 );
 
@@ -431,10 +395,10 @@ static_assert( sizeof( hiprtFrameMatrix ) == 64 );
  */
 struct HIPRT_ALIGN( 8 ) hiprtTransformHeader
 {
-  /*!< Frame index */
-  uint32_t frameIndex;
-  /*!< Number of frames */
-  uint32_t frameCount;
+	/*!< Frame index */
+	uint32_t frameIndex;
+	/*!< Number of frames */
+	uint32_t frameCount;
 };
 static_assert( sizeof( hiprtTransformHeader ) == 8 );
 
@@ -473,10 +437,10 @@ HIPRT_API hiprtError hiprtDestroyContext( hiprtContext context );
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtCreateGeometry(
-  hiprtContext				   context,
-  const hiprtGeometryBuildInput* buildInput,
-  const hiprtBuildOptions*	   buildOptions,
-  hiprtGeometry*				   outGeometry );
+	hiprtContext				   context,
+	const hiprtGeometryBuildInput* buildInput,
+	const hiprtBuildOptions*	   buildOptions,
+	hiprtGeometry*				   outGeometry );
 
 /** \brief Destroy a geometry.
  *
@@ -507,13 +471,13 @@ HIPRT_API hiprtError hiprtDestroyGeometry( hiprtContext context, hiprtGeometry o
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtBuildGeometry(
-  hiprtContext				   context,
-  hiprtBuildOperation			   buildOperation,
-  const hiprtGeometryBuildInput* buildInput,
-  const hiprtBuildOptions*	   buildOptions,
-  hiprtDevicePtr				   temporaryBuffer,
-  hiprtApiStream				   stream,
-  hiprtGeometry				   outGeometry );
+	hiprtContext				   context,
+	hiprtBuildOperation			   buildOperation,
+	const hiprtGeometryBuildInput* buildInput,
+	const hiprtBuildOptions*	   buildOptions,
+	hiprtDevicePtr				   temporaryBuffer,
+	hiprtApiStream				   stream,
+	hiprtGeometry				   outGeometry );
 
 /** \brief Get temporary storage requirements for geometry build.
  *
@@ -524,18 +488,7 @@ HIPRT_API hiprtError hiprtBuildGeometry(
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtGetGeometryBuildTemporaryBufferSize(
-  hiprtContext context, const hiprtGeometryBuildInput* buildInput, const hiprtBuildOptions* buildOptions, size_t* outSize );
-
-/** \brief Get temporary storage requirements for scene trace.
- *
- * \param context HIPRT API context.
- * \param scene Built scene for trace.
- * \param numRays Rays to be issued.
- * \param outSize Pointer to write result to.
- * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
- */
-HIPRT_API hiprtError
-hiprtGetGeometryTraceTemporaryBufferSize( hiprtContext context, hiprtGeometry scene, uint32_t numRays, size_t* outSize );
+	hiprtContext context, const hiprtGeometryBuildInput* buildInput, const hiprtBuildOptions* buildOptions, size_t* outSize );
 
 /** \brief Create a scene.
  *
@@ -549,7 +502,7 @@ hiprtGetGeometryTraceTemporaryBufferSize( hiprtContext context, hiprtGeometry sc
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtCreateScene(
-  hiprtContext context, const hiprtSceneBuildInput* buildInput, const hiprtBuildOptions* buildOptions, hiprtScene* outScene );
+	hiprtContext context, const hiprtSceneBuildInput* buildInput, const hiprtBuildOptions* buildOptions, hiprtScene* outScene );
 
 /** \brief Destroy a scene.
  *
@@ -578,13 +531,13 @@ HIPRT_API hiprtError hiprtDestroyScene( hiprtContext context, hiprtScene outScen
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtBuildScene(
-  hiprtContext				context,
-  hiprtBuildOperation			buildOperation,
-  const hiprtSceneBuildInput* buildInput,
-  const hiprtBuildOptions*	buildOptions,
-  hiprtDevicePtr				temporaryBuffer,
-  hiprtApiStream				stream,
-  hiprtScene					outScene );
+	hiprtContext				context,
+	hiprtBuildOperation			buildOperation,
+	const hiprtSceneBuildInput* buildInput,
+	const hiprtBuildOptions*	buildOptions,
+	hiprtDevicePtr				temporaryBuffer,
+	hiprtApiStream				stream,
+	hiprtScene					outScene );
 
 /** \brief Get temporary storage requirements for scene build.
  *
@@ -595,45 +548,36 @@ HIPRT_API hiprtError hiprtBuildScene(
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtGetSceneBuildTemporaryBufferSize(
-  hiprtContext context, const hiprtSceneBuildInput* buildInput, const hiprtBuildOptions* buildOptions, size_t* outSize );
-
-/** \brief Get temporary storage requirements for scene trace.
- *
- * \param context HIPRT API context.
- * \param scene Built scene for trace.
- * \param numRays Rays to be issued.
- * \param outSize Pointer to write result to.
- * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
- */
-HIPRT_API hiprtError
-hiprtGetSceneTraceTemporaryBufferSize( hiprtContext context, hiprtScene scene, uint32_t numRays, size_t* outSize );
+	hiprtContext context, const hiprtSceneBuildInput* buildInput, const hiprtBuildOptions* buildOptions, size_t* outSize );
 
 /** \brief Creates a custom function table (for custom geometry).
  *
  * \param context HIPRT API context.
- * \param outFuncTable Resulting table.
+ * \param numGeomTypes The number of geometry types.
+ * \param numRayTypes The number of ray types.
+ * \param outFuncTable The resulting table.
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
-HIPRT_API hiprtError hiprtCreateCustomFuncTable( hiprtContext context, hiprtCustomFuncTable* outFuncTable );
+HIPRT_API hiprtError hiprtCreateFuncTable( hiprtContext context, uint32_t numGeomTypes, uint32_t numRayTypes, hiprtFuncTable* outFuncTable );
 
 /** \brief Sets a custom function table.
  *
  * \param context HIPRT API context.
- * \param outFuncTable Resulting table.
- * \param index Index of the set in the table.
+ * \param funcTable Function table.
+ * \param geomType Geometry type.
+ * \param rayType Ray type.
  * \param set Function set to be set.
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
-HIPRT_API hiprtError
-hiprtSetCustomFuncTable( hiprtContext context, hiprtCustomFuncTable outFuncTable, uint32_t index, hiprtCustomFuncSet set );
+HIPRT_API hiprtError hiprtSetFuncTable( hiprtContext context, hiprtFuncTable funcTable, uint32_t geomType, uint32_t rayType, hiprtFuncDataSet set ); 
 
 /** \brief Destroys a custom function table.
  *
  * \param context HIPRT API context.
- * \param outFuncTable Resulting table.
+ * \param funcTable Function table.
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
-HIPRT_API hiprtError hiprtDestroyCustomFuncTable( hiprtContext context, hiprtCustomFuncTable outFuncTable );
+HIPRT_API hiprtError hiprtDestroyFuncTable( hiprtContext context, hiprtFuncTable funcTable );
 
 /** \brief Saves hiprtGeometry to a binary file.
  *
@@ -693,7 +637,7 @@ HIPRT_API hiprtError hiprtExportSceneAabb( hiprtContext context, hiprtScene inSc
 
 /** \brief Get Program instance with HIPRT routines.
  * \param context HIPRT API context.
- * \param numFunctions Number of function names, numFunctions must be greater than or equal to 0.
+ * \param numFunctions Number of function names.
  * \param functionNames Functions names (explicit instatiation for templated kernels) to which handle will be returned, NULL when numFunctions is 0.
  * \param src HIP program source.
  * \param name Program source filename.
@@ -701,22 +645,29 @@ HIPRT_API hiprtError hiprtExportSceneAabb( hiprtContext context, hiprtScene inSc
  * \param headers Sources of the headers, NULL when numHeaders is 0.
  * \param includeNames Name of each header by which they can be included in the HIP program source, includeNames can be NULL
  * when numHeaders is 0. 
+ * \param numOptions Number of options.
  * \param options Compiler options, can be NULL.
- * \param progOut Output build program instance.
+ * \param numGeomTypes Number of geometry types.
+ * \param numRayTypes Number of ray types.
+ * \param outProg Output build program instance.
+ * \param funcNameSets Table of custom function names (numRayTypes x numGeomTypes): 
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
 HIPRT_API hiprtError hiprtBuildTraceProgram(
-  hiprtContext context,
-  int			 numFunctions,
-  const char** functionNames,
-  const char*	 src,
-  const char*	 name,
-  int			 numHeaders,
-  const char** headers,
-  const char** includeNames,
-  const char** options,
-  int			 numOptions,
-  void*		 progOut );
+	hiprtContext	  context,
+	uint32_t		  numFunctions,
+	const char**	  functionNames,
+	const char*		  src,
+	const char*		  name,
+	uint32_t		  numHeaders,
+	const char**	  headersIn,
+	const char**	  includeNamesIn,
+	uint32_t		  numOptions,
+	const char**	  options,
+	uint32_t		  numGeomTypes,
+	uint32_t		  numRayTypes,
+	hiprtFuncNameSet* funcNameSets,
+	void*			  outProg );
 
 /** \brief Get binary with HIPRT routines.
  *
@@ -725,17 +676,14 @@ HIPRT_API hiprtError hiprtBuildTraceProgram(
  * \param binary Output if NULL function returns size of parameter else returned binary(application should allocate for binary)..
  * \return HIPRT error in case of a failure, hiprtSuccess otherwise.
  */
-HIPRT_API hiprtError hiprtBuildTraceGetBinary(
-  void* prog, 
-  size_t* size, 
-  void* binary);
+HIPRT_API hiprtError hiprtBuildTraceGetBinary( void* prog, size_t* size, void* binary );
 
 /** \brief Setting log level.
  *
  * \param path user defined path to cache kernels.
  */
 HIPRT_API void hiprtSetCacheDirPath( 
-  const char* path );
+	const char* path );
 
 
 /** \brief Setting log level.

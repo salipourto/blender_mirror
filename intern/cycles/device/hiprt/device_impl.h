@@ -10,7 +10,7 @@
 
 #  include "hiprt.h"
 
-//#  define HIPRT_INTERSECTION_FILTERS
+#  define HIPRT_INTERSECTION_FILTERS
 //#  define KERNEL_TIME
 
 
@@ -82,7 +82,7 @@ class HIPRTDevice : public HIPDevice {
   }
 
   enum Filter_Function {
-    Self_Intersect = 0,
+    Opaque = 0,
     Shadows,
     SSR,
     Volume,
@@ -110,13 +110,19 @@ class HIPRTDevice : public HIPDevice {
   device_vector<int2> curve_intersect_data;
   
 
-  hiprtCustomFuncTable custom_functions_table[Max_Intersect_Filter_Function];
+  //hiprtCustomFuncTable custom_functions_table[Max_Intersect_Filter_Function];
+  hiprtFuncTable functions_table;
 
   bool use_lds;
 
  protected:
  
- bool compile_RT_kernel(const string fatbin_rt, const string include_path, const string source_path);
+ bool compile_RT_kernel(const string fatbin_rt,
+                         const string include_path,
+                         const string source_path,
+                         hiprtFuncNameSet *func_name_set);
+
+ bool set_function_table(hiprtFuncNameSet *func_name_set);
 
   hiprtGeometry build_blas(BVHHIPRT *bvh, Geometry *geom, hiprtBuildOptions options);
   hiprtScene build_tlas(BVHHIPRT *bvh,

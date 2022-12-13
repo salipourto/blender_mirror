@@ -48,13 +48,14 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
       curve_intersect_data_offset(this, "__curve_intersect_data_offset", MEM_GLOBAL),
       curve_intersect_data(this, "__curve_intersect_data", MEM_GLOBAL),
       use_lds(true),
+      functions_table(NULL),
       HIPDevice(info, stats, profiler)
 {
 
   hiprt_context = 0;
   scene = 0;
 
-  memset(custom_functions_table, 0, sizeof(custom_functions_table));
+  //memset(custom_functions_table, 0, sizeof(custom_functions_table));
 
   hiprtContextCreationInput hiprt_context_input = {0};
   hiprt_context_input.ctxt = hipContext;
@@ -78,6 +79,7 @@ HIPRTDevice::~HIPRTDevice()
   transform_headers_.free();
   curve_intersect_data_offset.free();
   curve_intersect_data.free();
+  hiprtDestroyFuncTable(hiprt_context, functions_table);
   hiprtDestroyScene(hiprt_context, scene);
   hiprtDestroyContext(hiprt_context);
 }
@@ -102,9 +104,11 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
   return cflags;
 }
 
-bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt, const string include_path, const string source_path)
+bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
+                                    const string include_path,
+                                    const string source_path,
+                                    hiprtFuncNameSet *func_name_set)
 {
-
   if (!path_exists(fatbin_rt)) {
 
     vector<const char *> function_names;
@@ -126,6 +130,7 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt, const string include
 
       function_names.push_back(function_names_str[i].c_str());
     }
+
 
     vector<const char *> rtc_options;
 
@@ -164,14 +169,33 @@ if (use_lds) {
     hiprtError e = hiprtBuildTraceProgram(hiprt_context,
                                           function_names.size(),
                                           function_names.data(),
-                                          src_txt.c_str(), //source code
-                                          0,               // program name, can be null
+                                          src_txt.c_str(),  // source code
+                                          0,                // program name, can be null
                                           0,
                                           0,
                                           0,
-                                          rtc_options.data(),
                                           rtc_options.size(),
+                                          rtc_options.data(),
+                                          Max_Primitive_Type,
+                                          Max_Intersect_Filter_Function,
+                                          func_name_set,
                                           &intersection);
+
+
+    HIPRT_API hiprtError hiprtBuildTraceProgram(hiprtContext context,
+                                                uint32_t numFunctions,
+                                                const char **functionNames,
+                                                const char *src,
+                                                const char *name,
+                                                uint32_t numHeaders,
+                                                const char **headersIn,
+                                                const char **includeNamesIn,
+                                                uint32_t numOptions,
+                                                const char **options,
+                                                uint32_t numGeomTypes,
+                                                uint32_t numRayTypes,
+                                                hiprtFuncNameSet *funcNameSets,
+                                                void *outProg);
 
     size_t binary_size = 0;
     if (e == 0)
@@ -188,6 +212,50 @@ if (use_lds) {
   return true;
 }
 
+bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
+{
+  const char *filter_functions[] = {
+      "opaque_intersection_filter",
+      "shadow_intersection_filter",
+      "local_intersection_filter",
+      "volume_intersection_filter",
+  };
+
+  const char *intersect_function[] = {
+      "none", "curve_custom_intersect", "motion_triangle_custom_intersect", "point_custom_intersect"};
+
+  for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
+       filter_function++) {
+    for (int prim = 0; prim < Max_Primitive_Type; prim++) {
+      int table_index = prim + filter_function * Max_Intersect_Filter_Function;
+      if (prim != Triangle && filter_function != Opaque) {
+        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
+        func_name_set[table_index].intersectFuncName = intersect_function[prim];
+      }
+      else if (prim == Triangle)
+          //triangle primitives dont need a custom intersection function
+        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
+      else
+          //custom primitives for scene_intersect don't need a filter function because the custom intersection
+          //function can handle whatever filter function plans to achieve
+        func_name_set[table_index].intersectFuncName = intersect_function[prim];
+    }
+  }
+
+  hiprtFuncDataSet func_data_set;
+  hiprtError result = hiprtCreateFuncTable(
+      hiprt_context, Max_Primitive_Type, Max_Intersect_Filter_Function, &functions_table);
+  if (result == 0)
+    result = hiprtSetFuncTable(hiprt_context,
+                               functions_table,
+                               Max_Primitive_Type,
+                               Max_Intersect_Filter_Function,
+                               func_data_set);
+
+  return (result == hiprtSuccess);
+
+}
+
 string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name, const char *base)
 {
 
@@ -201,6 +269,11 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   if (arch == NULL) {
     arch = props.gcnArchName;
   }
+
+  hiprtFuncNameSet func_name_sets[Max_Primitive_Type * Max_Intersect_Filter_Function];
+
+  if (!set_function_table(func_name_sets))
+    return string();
 
   if (!use_adaptive_compilation()) {
     const string fatbin = path_get(string_printf("lib/%s_%s.fatbin", name, arch));
@@ -257,7 +330,7 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
 
   double starttime = time_dt();
 
-if (!compile_RT_kernel(fatbin, include_path, source_path)) {
+if (!compile_RT_kernel(fatbin, include_path, source_path, func_name_sets)) {
     set_error(
         "HIP RTC kernel compilation failed, "
         "see console for details.");
@@ -370,7 +443,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 {
 
   hiprtGeometryBuildInput geomInput;
-  geomInput.customFuncSetIndex = Triangle;
+  geomInput.geomType = Triangle;
 
   if (mesh->has_motion_blur() && bvh->params.num_motion_triangle_steps != 0) {
 
@@ -427,7 +500,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 
     geomInput.type = hiprtPrimitiveTypeAABBList;
     geomInput.aabbList.primitive = &motion_trinagle_aabb;
-    geomInput.customFuncSetIndex = Motion_Triangle;
+    geomInput.geomType = Motion_Triangle;
 
   }
   else {
@@ -567,7 +640,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-  geomInput.customFuncSetIndex = Curve;
+  geomInput.geomType = Curve;
 
   return geomInput;
 }
@@ -660,7 +733,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &point_aabb;
-  geomInput.customFuncSetIndex = Point;
+  geomInput.geomType = Point;
 
   return geomInput;
 }
@@ -929,12 +1002,12 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
 
     }
 
-    const char *filter_functions[] = {"skip_self_filter_func", "shadow_filter_func", "local_filter_func", "volume_filter_func", };
-    const char *intersect_function[] = {
-        "none",
-        "curve_intersect_func",
-        "motion_triangle_intersect_func",
-        "point_intersect_func"};
+    //const char *filter_functions[] = {"skip_self_filter_func", "shadow_filter_func", "local_filter_func", "volume_filter_func", };
+    //const char *intersect_function[] = {
+    //    "none",
+    //    "curve_intersect_func",
+    //    "motion_triangle_intersect_func",
+    //    "point_intersect_func"};
 
     const char *tables[] = {"__table_closest_intersect",
                             "__table_shadow_intersect",
@@ -942,7 +1015,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                             "__table_volume_intersect"};
 
 
-    device_ptr intersection_func_ptr[Max_Primitive_Type] = {0};
+   /* device_ptr intersection_func_ptr[Max_Primitive_Type] = {0};
     device_ptr intersection_filter_func_ptr[Max_Intersect_Filter_Function] = {0};
 
     size_t func_ptr_size = 0;
@@ -966,9 +1039,20 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                                      filter_functions[filter_function]);
       assert(result == 0);
 
+    }*/
+
+    for (int table_index = 0; table_index < Max_Intersect_Filter_Function; table_index++) {
+
+      size_t table_ptr_size = 0;
+      device_ptr table_device_ptr;
+
+      hip_assert(hipModuleGetGlobal(
+          &table_device_ptr, &table_ptr_size, current_hipModule, tables[table_index]));
+      hip_assert(hipMemcpyHtoD(table_device_ptr, &functions_table, table_ptr_size));
     }
 
 
+#if 0
     for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
          filter_function++) {
 
@@ -1040,8 +1124,8 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
               table_device_ptr, &custom_functions_table[filter_function], table_ptr_size));
 
         }
-    } 
-
+    }
+    #endif
   return scene;
 }
 

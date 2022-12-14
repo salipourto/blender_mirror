@@ -265,6 +265,8 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
     }
     return true;
   }
+  else
+	  return false;
 #  endif
 }
 #endif /* __VOLUME__ */

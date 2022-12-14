@@ -1835,9 +1835,6 @@ elseif(WITH_CYCLES_STANDALONE OR WITH_CYCLES_HYDRA_RENDER_DELEGATE)
  if(WITH_CYCLES_DEVICE_HIPRT)
     add_subdirectory(extern/hiprt)
   endif()
-  if(NOT WITH_SYSTEM_GLEW)
-    add_subdirectory(extern/glew)
-  endif()
 endif()
 
 

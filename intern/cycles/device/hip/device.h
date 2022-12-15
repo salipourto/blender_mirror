@@ -16,8 +16,10 @@ class Stats;
 bool device_hip_init();
 
 Device *device_hip_create(const DeviceInfo &info, Stats &stats, Profiler &profiler);
+Device *device_hiprt_create(const DeviceInfo &info, Stats &stats, Profiler &profiler);
 
 void device_hip_info(vector<DeviceInfo> &devices);
+void device_hiprt_info(vector<DeviceInfo> &devices);
 
 string device_hip_capabilities();
 

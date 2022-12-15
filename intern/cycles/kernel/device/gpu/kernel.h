@@ -189,7 +189,7 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 ccl_gpu_kernel_postfix
 #endif
 
-ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
+ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_background,
                              ccl_global const int *path_index_array,
                              ccl_global float *render_buffer,
@@ -204,7 +204,7 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 }
 ccl_gpu_kernel_postfix
 
-ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
+ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_light,
                              ccl_global const int *path_index_array,
                              ccl_global float *render_buffer,
@@ -219,7 +219,7 @@ ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 }
 ccl_gpu_kernel_postfix
 
-ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
+ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_shadow,
                              ccl_global const int *path_index_array,
                              ccl_global float *render_buffer,
@@ -293,7 +293,7 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
 }
 ccl_gpu_kernel_postfix
 #endif
-ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
+ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_volume,
                              ccl_global const int *path_index_array,
                              ccl_global float *render_buffer,

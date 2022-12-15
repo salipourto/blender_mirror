@@ -97,6 +97,13 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
       break;
 #endif
 
+#ifdef WITH_HIPRT
+    case DEVICE_HIPRT:
+      if (device_hip_init())
+        device = device_hiprt_create(info, stats, profiler);
+      break;
+#endif
+
 #ifdef WITH_METAL
     case DEVICE_METAL:
       if (device_metal_init())
@@ -137,6 +144,8 @@ DeviceType Device::type_from_string(const char *name)
     return DEVICE_METAL;
   else if (strcmp(name, "ONEAPI") == 0)
     return DEVICE_ONEAPI;
+  else if (strcmp(name, "HIPRT") == 0)
+    return DEVICE_HIPRT;
 
   return DEVICE_NONE;
 }
@@ -157,6 +166,8 @@ string Device::string_from_type(DeviceType type)
     return "METAL";
   else if (type == DEVICE_ONEAPI)
     return "ONEAPI";
+  else if (type == DEVICE_HIPRT)
+    return "HIPRT";
 
   return "";
 }
@@ -173,6 +184,9 @@ vector<DeviceType> Device::available_types()
 #endif
 #ifdef WITH_HIP
   types.push_back(DEVICE_HIP);
+#endif
+#ifdef WITH_HIPRT
+  types.push_back(DEVICE_HIPRT);
 #endif
 #ifdef WITH_METAL
   types.push_back(DEVICE_METAL);
@@ -228,6 +242,20 @@ vector<DeviceInfo> Device::available_devices(uint mask)
         device_hip_info(hip_devices);
       }
       devices_initialized_mask |= DEVICE_MASK_HIP;
+    }
+    foreach (DeviceInfo &info, hip_devices) {
+      devices.push_back(info);
+    }
+  }
+#endif
+
+#ifdef WITH_HIPRT
+  if (mask & DEVICE_MASK_HIPRT) {
+    if (!(devices_initialized_mask & DEVICE_MASK_HIPRT)) {
+      if (device_hip_init()) {
+        device_hiprt_info(hip_devices);
+      }
+      devices_initialized_mask |= DEVICE_MASK_HIPRT;
     }
     foreach (DeviceInfo &info, hip_devices) {
       devices.push_back(info);
@@ -308,6 +336,15 @@ string Device::device_capabilities(uint mask)
     if (device_hip_init()) {
       capabilities += "\nHIP device capabilities:\n";
       capabilities += device_hip_capabilities();
+    }
+  }
+#endif
+
+ #ifdef WITH_HIPRT
+  if (mask & DEVICE_MASK_HIPRT) {
+    if (device_hip_init()) {
+      capabilities += "\nHIPRT device capabilities:\n";
+      //capabilities += device_hip_capabilities();
     }
   }
 #endif

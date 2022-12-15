@@ -147,7 +147,7 @@ bool HIPDevice::check_peer_access(Device *peer_device)
   if (peer_device == this) {
     return false;
   }
-  if (peer_device->info.type != DEVICE_HIP && peer_device->info.type != DEVICE_OPTIX) {
+  if (peer_device->info.type != DEVICE_HIP && peer_device->info.type != DEVICE_HIPRT) {
     return false;
   }
 

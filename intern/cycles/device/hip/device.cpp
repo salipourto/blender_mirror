@@ -69,10 +69,23 @@ bool device_hip_init()
 
 Device *device_hip_create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
 {
+#if WITH_HIP
+  return new HIPDevice(info, stats, profiler);
+#else
+  (void)info;
+  (void)stats;
+  (void)profiler;
+
+  LOG(FATAL) << "Request to create HIP device without compiled-in support. Should never happen.";
+
+  return nullptr;
+#endif
+}
+
+Device *device_hiprt_create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
+{
 #ifdef WITH_HIPRT
   return new HIPRTDevice(info, stats, profiler);
-#elif WITH_HIP
-  return new HIPDevice(info, stats, profiler);
 #else
   (void)info;
   (void)stats;
@@ -139,6 +152,93 @@ void device_hip_info(vector<DeviceInfo> &devices)
     DeviceInfo info;
 
     info.type = DEVICE_HIP;
+    info.description = string(name);
+    info.num = num;
+
+    info.has_nanovdb = true;
+    info.denoisers = 0;
+
+    info.has_gpu_queue = true;
+    /* Check if the device has P2P access to any other device in the system. */
+    for (int peer_num = 0; peer_num < count && !info.has_peer_memory; peer_num++) {
+      if (num != peer_num) {
+        int can_access = 0;
+        hipDeviceCanAccessPeer(&can_access, num, peer_num);
+        info.has_peer_memory = (can_access != 0);
+      }
+    }
+
+    int pci_location[3] = {0, 0, 0};
+    hipDeviceGetAttribute(&pci_location[0], hipDeviceAttributePciDomainID, num);
+    hipDeviceGetAttribute(&pci_location[1], hipDeviceAttributePciBusId, num);
+    hipDeviceGetAttribute(&pci_location[2], hipDeviceAttributePciDeviceId, num);
+    info.id = string_printf("HIP_%s_%04x:%02x:%02x",
+                            name,
+                            (unsigned int)pci_location[0],
+                            (unsigned int)pci_location[1],
+                            (unsigned int)pci_location[2]);
+
+    /* If device has a kernel timeout and no compute preemption, we assume
+     * it is connected to a display and will freeze the display while doing
+     * computations. */
+    int timeout_attr = 0, preempt_attr = 0;
+    hipDeviceGetAttribute(&timeout_attr, hipDeviceAttributeKernelExecTimeout, num);
+
+    if (timeout_attr && !preempt_attr) {
+      VLOG_INFO << "Device is recognized as display.";
+      info.description += " (Display)";
+      info.display_device = true;
+      display_devices.push_back(info);
+    }
+    else {
+      VLOG_INFO << "Device has compute preemption or is not used for display.";
+      devices.push_back(info);
+    }
+    VLOG_INFO << "Added device \"" << name << "\" with id \"" << info.id << "\".";
+  }
+
+  if (!display_devices.empty())
+    devices.insert(devices.end(), display_devices.begin(), display_devices.end());
+#else  /* WITH_HIP */
+  (void)devices;
+#endif /* WITH_HIP */
+}
+
+void device_hiprt_info(vector<DeviceInfo> &devices)
+{
+#ifdef WITH_HIPRT
+  hipError_t result = device_hip_safe_init();
+  if (result != hipSuccess) {
+    if (result != hipErrorNoDevice)
+      fprintf(stderr, "HIPRT hipInit: %s\n", hipewErrorString(result));
+    return;
+  }
+
+  int count = 0;
+  result = hipGetDeviceCount(&count);
+  if (result != hipSuccess) {
+    fprintf(stderr, "HIP hipGetDeviceCount: %s\n", hipewErrorString(result));
+    return;
+  }
+
+  vector<DeviceInfo> display_devices;
+
+  for (int num = 0; num < count; num++) {
+    char name[256];
+
+    result = hipDeviceGetName(name, 256, num);
+    if (result != hipSuccess) {
+      fprintf(stderr, "HIP :hipDeviceGetName: %s\n", hipewErrorString(result));
+      continue;
+    }
+
+    if (!hipSupportsDevice(num)) {
+      continue;
+    }
+
+    DeviceInfo info;
+
+    info.type = DEVICE_HIPRT;
     info.description = string(name);
     info.num = num;
 

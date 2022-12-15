@@ -1,4 +1,7 @@
-#if defined(__HIPCC_RTC__) //|| defined(__OFFLINE_COMPILER__))
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
+
+#if defined(__HIPCC_RTC__)
 struct RayPayload {
   RaySelfPrimitives self;
   KernelGlobals kg;

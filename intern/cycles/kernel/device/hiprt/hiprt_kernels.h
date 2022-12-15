@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 #ifdef __HIPRT__
 
 ccl_gpu_kernel(GPU_LDS_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)

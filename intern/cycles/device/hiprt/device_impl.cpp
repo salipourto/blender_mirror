@@ -41,7 +41,8 @@ BVHLayoutMask HIPRTDevice::get_bvh_layout_mask() const
 
 
 HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
-    : instance_id_map_(this, "Instance ID Map", MEM_READ_ONLY),
+    : use_lds(true),
+      instance_id_map_(this, "Instance ID Map", MEM_READ_ONLY),
       blender_object_id(this, "__blender_object_id", MEM_GLOBAL),
       visibility(this, "Visibility Mask", MEM_READ_ONLY),
       geometry(this, "HIPRT BLAS", MEM_READ_WRITE),
@@ -52,16 +53,11 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
       custom_prim_info(this, "__custom_prim_info", MEM_GLOBAL),
       prim_time_offset(this, "__prim_time_offset", MEM_GLOBAL),
       prim_time(this, "__prim_time", MEM_GLOBAL),
-      use_lds(true),
+      hiprt_context(NULL),
+      scene(NULL),
       functions_table(NULL),
       HIPDevice(info, stats, profiler)
 {
-
-  hiprt_context = 0;
-  scene = 0;
-
-  //memset(custom_functions_table, 0, sizeof(custom_functions_table));
-
   hiprtContextCreationInput hiprt_context_input = {0};
   hiprt_context_input.ctxt = hipContext;
   hiprt_context_input.device = hipDevice;
@@ -143,18 +139,25 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
 
     vector<const char *> rtc_options;
 
-    const string block_size_str = to_string(NUM_BLOCK_THREAD);
-    const string stack_size_str = to_string(LOCAL_STACK_SIZE);
+    const string block_size_str = to_string(HIPRT_THREAD_GROUP_SIZE);
+    const string stack_size_str = to_string(HIPRT_SHARED_STACK_SIZE);
+    const string global_stack_size_thread = to_string(HIPRT_THREAD_STACK_SIZE);
+    const string global_stack_size = to_string(HIPRT_GLOBAL_STACK_SIZE);
 
-    string block_size_def = "-D BLOCK_SIZE=" + block_size_str;
-    string stack_size_def = "-D SHARED_STACK_SIZE=" + stack_size_str;
+    string block_size_def = "-D HIPRT_THREAD_GROUP_SIZE=" + block_size_str;
+    string stack_size_def = "-D HIPRT_SHARED_STACK_SIZE=" + stack_size_str;
+    string global_stack_size_thread_def = "-D HIPRT_THREAD_STACK_SIZE=" + global_stack_size_thread;
+    string global_stack_size_def = "-D HIPRT_GLOBAL_STACK_SIZE=" + global_stack_size;
 
 if (use_lds) {
 
       rtc_options.push_back(block_size_def.c_str());
       rtc_options.push_back(stack_size_def.c_str());
+      rtc_options.push_back(global_stack_size_thread_def.c_str());
+      rtc_options.push_back(global_stack_size_def.c_str());
 
       rtc_options.push_back("-DHIPRT_SHARED_STACK");
+
     }
 
     rtc_options.push_back("-D __HIPRT__");
@@ -851,7 +854,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   size_t custom_prim_offset = 0;
 
   unordered_map<Geometry *, int> prim_time_map;
-  size_t time_offset = 0;
   
 
   size_t num_instances = 0;
@@ -891,7 +893,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
 
     hiprtFrameMatrix hiprt_transform_matrix = {0};
     Transform identity_matrix = transform_identity();
-    MAKE_TRANSFORM(hiprt_transform_matrix.matrix, identity_matrix)
+    get_hiprt_transform(hiprt_transform_matrix.matrix, identity_matrix);
 
     if (hiprt_geom_current) {
       bool is_custom_prim = current_bvh->custom_prim_info.size() > 0;
@@ -972,7 +974,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
         vector<hiprtFrameMatrix> tfm_hiprt_mb;
         tfm_hiprt_mb.resize(motion_size);
         for (int i = 0; i < motion_size; i++) {
-          MAKE_TRANSFORM(tfm_hiprt_mb[i].matrix, tfm_array[i]);
+          get_hiprt_transform(tfm_hiprt_mb[i].matrix, tfm_array[i]);
           tfm_hiprt_mb[i].time = (float)i * time_iternval;
           transform_matrix.push_back_slow(tfm_hiprt_mb[i]);
         }
@@ -980,7 +982,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
       else {
         if (transform_applied)
           current_transform = identity_matrix;
-        MAKE_TRANSFORM(hiprt_transform_matrix.matrix, current_transform);
+        get_hiprt_transform(hiprt_transform_matrix.matrix, current_transform);
         transform_matrix.push_back_slow(hiprt_transform_matrix);
       }
 
@@ -1003,8 +1005,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   #ifdef KERNEL_TIME
   printf("Number Instance\t%d\n", (int)num_instances);
   #endif
-
-  hipError_t rt_result; 
  
   instance_id_map_.copy_to_device();
   blender_object_id.copy_to_device();
@@ -1044,6 +1044,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   rt_err = hiprtBuildScene(
       hiprt_context, build_operation, &scene_input_ptr, &options, (void *)scratch_buffer.device_pointer, 0, scene);
 
+  scratch_buffer.free();
 
     if (bvh->custom_prim_info.size()) {
       size_t data_size = bvh->custom_prim_info.size();
@@ -1114,6 +1115,28 @@ void HIPRTDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
     scene = build_tlas(bvh_rt, objects, options, refit);
 
   }
+}
+
+void get_hiprt_transform(float matrix[][4], Transform &tfm)
+{
+  int row = 0;
+  int col = 0;
+  matrix[row][col++] = tfm.x.x;
+  matrix[row][col++] = tfm.x.y;
+  matrix[row][col++] = tfm.x.z;
+  matrix[row][col++] = tfm.x.w;
+  row++;
+  col = 0;
+  matrix[row][col++] = tfm.y.x;
+  matrix[row][col++] = tfm.y.y;
+  matrix[row][col++] = tfm.y.z;
+  matrix[row][col++] = tfm.y.w;
+  row++;
+  col = 0;
+  matrix[row][col++] = tfm.z.x;
+  matrix[row][col++] = tfm.z.y;
+  matrix[row][col++] = tfm.z.z;
+  matrix[row][col++] = tfm.z.w;
 }
 
 CCL_NAMESPACE_END

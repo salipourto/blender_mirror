@@ -1980,12 +1980,8 @@ void GeometryManager::device_update(Device *device,
     foreach (Geometry *geom, scene->geometry) {
       if (geom->is_modified() || geom->need_update_bvh_for_offset) {
         need_update_scene_bvh = true;
-        #if 1
         pool.push(function_bind(
             &Geometry::compute_bvh, geom, device, dscene, &scene->params, &progress, i, num_bvh));
-        #else
-        geom->compute_bvh(device, dscene, &scene->params, &progress, i, num_bvh);
-        #endif
         if (geom->need_build_bvh(bvh_layout)) {
           i++;
         }

@@ -43,7 +43,7 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
   const HIPDeviceKernel &hip_kernel = hiprt_device_->kernels.get(kernel);
 
   /* Compute kernel launch parameters. */
-  const int num_threads_per_block = hiprt_device_->use_lds ? NUM_BLOCK_THREAD :
+  const int num_threads_per_block = hiprt_device_->use_lds ? HIPRT_THREAD_GROUP_SIZE :
                                                              hip_kernel.num_threads_per_block;
   const int num_blocks = divide_up(work_size, num_threads_per_block);
 

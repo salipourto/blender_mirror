@@ -28,7 +28,7 @@ typedef hiprtGlobalStack Stack;
 
 #if defined(HIPRT_SHARED_STACK) && defined(__HIPCC_RTC__)
 #  define SET_SHARED_MEMORY() \
-    ccl_gpu_shared int shared_stack[SHARED_STACK_SIZE * BLOCK_SIZE]; \
+    ccl_gpu_shared int shared_stack[HIPRT_SHARED_STACK_SIZE * HIPRT_THREAD_GROUP_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
     KernelGlobals kg = &kg_gpu; \
     kg->shared_stack = &shared_stack[0];
@@ -53,7 +53,7 @@ struct KernelParamsHIPRT {
 #ifdef __KERNEL_GPU__
 __constant__ KernelParamsHIPRT kernel_params;
 #if defined(__HIPCC_RTC__)
-__attribute__((device)) int global_stack_buffer[1024 * 1024 * 512];
+__attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtFuncTable __table_closest_intersect;
 __attribute__((used)) __attribute__((constant)) __attribute__((device))

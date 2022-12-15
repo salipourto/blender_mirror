@@ -16,34 +16,10 @@
 #  define HIPRT_INTERSECTION_FILTERS
 //#  define KERNEL_TIME
 
-
-#    define MAKE_TRANSFORM(matrix, tfm) \
-      int row = 0; \
-      int col = 0; \
-      matrix[row][col++] = tfm.x.x; \
-      matrix[row][col++] = tfm.x.y; \
-      matrix[row][col++] = tfm.x.z; \
-      matrix[row][col++] = tfm.x.w; \
-      row++;\
-      col = 0; \
-      matrix[row][col++] = tfm.y.x; \
-      matrix[row][col++] = tfm.y.y; \
-      matrix[row][col++] = tfm.y.z; \
-      matrix[row][col++] = tfm.y.w; \
-      row++;\
-      col = 0; \
-      matrix[row][col++] = tfm.z.x; \
-      matrix[row][col++] = tfm.z.y; \
-      matrix[row][col++] = tfm.z.z; \
-      matrix[row][col++] = tfm.z.w;\
-
-#    define HIPDEVICEPTR_T(hiprt_ptr) (hipDeviceptr_t *)(&hiprt_ptr)
-
-#    define GLOBAL_STACK_SIZE   512*1024*1024
-#    define LOCAL_STACK_SIZE 24 //allocation for each thread
-#    define NUM_BLOCK_THREAD 256 //total locak stack size would be number of threads * LOCAL_STACK_SIZE
-
-#   define TRANSFORM_MATRIX
+#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
+#  define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread
+#  define HIPRT_THREAD_STACK_SIZE 64  // global stack allocation per thread
+#  define HIPRT_THREAD_GROUP_SIZE 256 // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
 
 
 CCL_NAMESPACE_BEGIN
@@ -54,6 +30,8 @@ class PointCloud;
 class Geometry;
 class Object;
 class BVHHIPRT;
+
+void get_hiprt_transform(float matrix[][4], Transform &tfm);
 
 class HIPRTDevice : public HIPDevice {
 
@@ -100,25 +78,6 @@ class HIPRTDevice : public HIPDevice {
     Max_Primitive_Type
   };
 
-  device_vector<int> instance_id_map_;
-  device_vector<int> blender_object_id;
-  device_vector<uint32_t> visibility;
-
-  device_vector<uint64_t> geometry;
-  device_vector<uint64_t> blas_ptr;
-  device_vector<hiprtFrameMatrix> transform_matrix_;
-  device_vector<hiprtTransformHeader> transform_headers_;
-
-  device_vector<int2> custom_prim_info_offset;
-  device_vector<int2> custom_prim_info;
-
-  device_vector<int> prim_time_offset;
-  device_vector<float2> prim_time;
-  
-
-  //hiprtCustomFuncTable custom_functions_table[Max_Intersect_Filter_Function];
-  hiprtFuncTable functions_table;
-
   bool use_lds;
 
  protected:
@@ -136,8 +95,24 @@ class HIPRTDevice : public HIPDevice {
                         hiprtBuildOptions options,
                         bool refit);
 
+  device_vector<int> instance_id_map_;
+  device_vector<int> blender_object_id;
+  device_vector<uint32_t> visibility;
+
+  device_vector<uint64_t> geometry;
+  device_vector<uint64_t> blas_ptr;
+  device_vector<hiprtFrameMatrix> transform_matrix_;
+  device_vector<hiprtTransformHeader> transform_headers_;
+
+  device_vector<int2> custom_prim_info_offset;
+  device_vector<int2> custom_prim_info;
+
+  device_vector<int> prim_time_offset;
+  device_vector<float2> prim_time;
+
   hiprtContext hiprt_context;
   hiprtScene scene;
+  hiprtFuncTable functions_table;
 
 };
 

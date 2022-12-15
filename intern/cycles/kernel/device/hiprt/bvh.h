@@ -3,8 +3,6 @@
 
 #pragma once
 
-#define STACK_SIZE 64
-
 #include "kernel/device/hiprt/common.h"
 
 CCL_NAMESPACE_BEGIN

@@ -106,8 +106,11 @@ class HIPRTDevice : public HIPDevice {
   device_vector<hiprtFrameMatrix> transform_matrix_;
   device_vector<hiprtTransformHeader> transform_headers_;
 
-  device_vector<int2> curve_intersect_data_offset;
-  device_vector<int2> curve_intersect_data;
+  device_vector<int2> custom_prim_info_offset;
+  device_vector<int2> custom_prim_info;
+
+  device_vector<int> prim_time_offset;
+  device_vector<float2> prim_time;
   
 
   //hiprtCustomFuncTable custom_functions_table[Max_Intersect_Filter_Function];

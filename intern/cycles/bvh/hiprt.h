@@ -25,8 +25,9 @@ class BVHHIPRT : public BVH {
   hiprtGeometry hiprt_geom;
   hiprtTriangleMeshPrimitive triangle_mesh;
   hiprtAABBListPrimitive custom_prim_aabb;
-  vector<int2> packed_type;
-  vector<float2> motion_blur_time;
+
+  vector<int2> custom_prim_info; //x: prim_id, y: prim_type
+  vector<float2> prim_time;
 
   // custom primitives
 

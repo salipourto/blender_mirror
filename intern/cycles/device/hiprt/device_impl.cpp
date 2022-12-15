@@ -45,8 +45,10 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
       blas_ptr(this, "__instance_geometry", MEM_GLOBAL),
       transform_matrix_(this, "Transform Matrix", MEM_READ_ONLY),
       transform_headers_(this, "Transform Header", MEM_READ_ONLY),
-      curve_intersect_data_offset(this, "__curve_intersect_data_offset", MEM_GLOBAL),
-      curve_intersect_data(this, "__curve_intersect_data", MEM_GLOBAL),
+      custom_prim_info_offset(this, "__custom_prim_info_offset", MEM_GLOBAL),
+      custom_prim_info(this, "__custom_prim_info", MEM_GLOBAL),
+      prim_time_offset(this, "__prim_time_offset", MEM_GLOBAL),
+      prim_time(this, "__prim_time", MEM_GLOBAL),
       use_lds(true),
       functions_table(NULL),
       HIPDevice(info, stats, profiler)
@@ -73,12 +75,16 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
 HIPRTDevice::~HIPRTDevice()
 {
   instance_id_map_.free();
+  blender_object_id.free();
   visibility.free();
   geometry.free();
+  blas_ptr.free();
   transform_matrix_.free();
   transform_headers_.free();
-  curve_intersect_data_offset.free();
-  curve_intersect_data.free();
+  custom_prim_info_offset.free();
+  custom_prim_info.free();
+  prim_time_offset.free();
+  prim_time.free();
   hiprtDestroyFuncTable(hiprt_context, functions_table);
   hiprtDestroyScene(hiprt_context, scene);
   hiprtDestroyContext(hiprt_context);
@@ -223,6 +229,7 @@ bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 
   const char *intersect_function[] = {
       "none", "curve_custom_intersect", "motion_triangle_custom_intersect", "point_custom_intersect"};
+  //"motion_triangle_custom_local_intersect", "motion_triangle_custom_volume_intersect"
 
   for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
        filter_function++) {
@@ -432,8 +439,10 @@ void HIPRTDevice::const_copy_to(const char *name, void *host, size_t size)
   KERNEL_DATA_ARRAY(IntegratorStateGPU, integrator_state)
   KERNEL_DATA_ARRAY(int, __blender_object_id)
   KERNEL_DATA_ARRAY(uint64_t, __instance_geometry)
-  KERNEL_DATA_ARRAY(int2, __curve_intersect_data_offset)
-  KERNEL_DATA_ARRAY(int2, __curve_intersect_data)
+  KERNEL_DATA_ARRAY(int2, __custom_prim_info_offset)
+  KERNEL_DATA_ARRAY(int2, __custom_prim_info)
+  KERNEL_DATA_ARRAY(int, __prim_time_offset)
+  KERNEL_DATA_ARRAY(float2, __prim_time)
 #  include "kernel/data_arrays.h"
 #  undef KERNEL_DATA_ARRAY
 
@@ -445,18 +454,23 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
   hiprtGeometryBuildInput geomInput;
   geomInput.geomType = Triangle;
 
-  if (mesh->has_motion_blur() && bvh->params.num_motion_triangle_steps != 0) {
+  if (mesh->has_motion_blur() &&
+      !(bvh->params.num_motion_triangle_steps == 0 || bvh->params.use_spatial_split)) {
 
     const Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
     const size_t num_triangles = mesh->num_triangles();
-    vector<BoundBox> motion_bound;
+    //vector<BoundBox> motion_bound;
+
+    const int num_bvh_steps = bvh->params.num_motion_triangle_steps * 2 + 1;
+    const float num_bvh_steps_inv_1 = 1.0f / (num_bvh_steps - 1);
+
+     int num_bounds = 0;
+    bvh->custom_primitive_bound.alloc(num_triangles * num_bvh_steps);
 
     for (uint j = 0; j < num_triangles; j++) {
       Mesh::Triangle t = mesh->get_triangle(j);
       const float3 *verts = mesh->get_verts().data();
 
-      const int num_bvh_steps = bvh->params.num_motion_triangle_steps * 2 + 1;
-      const float num_bvh_steps_inv_1 = 1.0f / (num_bvh_steps - 1);
       const size_t num_verts = mesh->get_verts().size();
       const size_t num_steps = mesh->get_motion_steps();
       const float3 *vert_steps = attr_mP->data_float3();
@@ -480,28 +494,28 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
         bounds.grow(curr_bounds);
         if (bounds.valid()) {
           const float prev_time = (float)(bvh_step - 1) * num_bvh_steps_inv_1;
-          motion_bound.push_back(bounds);
-          bvh->motion_blur_time.push_back(make_float2(curr_time, prev_time));
+          bvh->custom_primitive_bound[num_bounds] = bounds;
+          bvh->custom_prim_info[num_bounds].x = j; 
+          bvh->custom_prim_info[num_bounds].y = mesh->primitive_type();
+          bvh->prim_time[num_bounds].x = curr_time;
+          bvh->prim_time[num_bounds].y = prev_time;
+          num_bounds++;
         }
         prev_bounds = curr_bounds;
       }
     }
 
-    hiprtAABBListPrimitive motion_trinagle_aabb;
-    motion_trinagle_aabb.aabbCount = motion_bound.size();
-    motion_trinagle_aabb.aabbStride = sizeof(BoundBox);
+    //hiprtAABBListPrimitive motion_trinagle_aabb;
+    bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
+    bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
+    bvh->custom_primitive_bound.copy_to_device();
+    bvh->custom_prim_aabb.aabbs = (void*)bvh->custom_primitive_bound.device_pointer;
 
-    hipError_t rt_result = hipMalloc(HIPDEVICEPTR_T(motion_trinagle_aabb.aabbs),
-                                     motion_bound.size() * sizeof(BoundBox));
 
-    rt_result = hipMemcpyHtoD(*HIPDEVICEPTR_T(motion_trinagle_aabb.aabbs),
-                              motion_bound.data(),
-                              motion_bound.size() * sizeof(BoundBox));
 
     geomInput.type = hiprtPrimitiveTypeAABBList;
-    geomInput.aabbList.primitive = &motion_trinagle_aabb;
+    geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
     geomInput.geomType = Motion_Triangle;
-
   }
   else {
 
@@ -548,14 +562,21 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
   const size_t num_segments = hair->num_segments();
   const Attribute *curve_attr_mP = NULL;
 
-  bvh->packed_type.resize(num_segments);
+  if (curve_attr_mP == NULL || bvh->params.num_motion_curve_steps == 0) {
 
-  if (hair->has_motion_blur() && bvh->params.num_motion_curve_steps) {
-      curve_attr_mP = hair->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+    bvh->custom_prim_info.resize(num_segments);
+    bvh->custom_primitive_bound.alloc(num_segments);
+  }
+  else {
+    size_t num_boxes = bvh->params.num_motion_curve_steps * 2* num_segments;
+    bvh->custom_prim_info.resize(num_boxes);
+    bvh->custom_primitive_bound.alloc(num_boxes);
+    curve_attr_mP = hair->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+    
   }
 
   int num_bounds = 0;
-  std::vector<BoundBox> curve_bound;
+
 
   for (uint j = 0; j < num_curves; j++) {
     const Hair::Curve curve = hair->get_curve(j);
@@ -566,9 +587,9 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
         curve.bounds_grow(k, &hair->get_curve_keys()[0], curve_radius, bounds);
         if (bounds.valid()) {
           int type = PRIMITIVE_PACK_SEGMENT(primitive_type, k);
-          bvh->packed_type[num_bounds].x = j;
-          bvh->packed_type[num_bounds].y = type; //k;
-          curve_bound.push_back(bounds);
+          bvh->custom_prim_info[num_bounds].x = j;
+          bvh->custom_prim_info[num_bounds].y = type;  // k;
+          bvh->custom_primitive_bound[num_bounds] = bounds;
           num_bounds++;
           }
         }
@@ -617,10 +638,12 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
           if (bounds.valid()) {
             const float prev_time = (float)(bvh_step - 1) * num_bvh_steps_inv_1;
             int packed_type = PRIMITIVE_PACK_SEGMENT(primitive_type, k);
-            bvh->packed_type[num_bounds].x = j;
-            bvh->packed_type[num_bounds].y = packed_type;  // k
-            curve_bound.push_back(bounds);
-            bvh->motion_blur_time.push_back(make_float2(curr_time, prev_time));
+            bvh->custom_prim_info[num_bounds].x = j;
+            bvh->custom_prim_info[num_bounds].y = packed_type;  // k
+            bvh->custom_primitive_bound[num_bounds] = bounds;
+            bvh->prim_time[num_bounds].x = curr_time;
+            bvh->prim_time[num_bounds].y = prev_time;
+            num_bounds++;
           }
           prev_bounds = curr_bounds;
         }
@@ -628,15 +651,10 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
     }
   }
 
-  bvh->custom_prim_aabb.aabbCount = curve_bound.size();
+  bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
   bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
-
-  hipError_t rt_result = hipMalloc(HIPDEVICEPTR_T(bvh->custom_prim_aabb.aabbs),
-                                   curve_bound.size() * sizeof(BoundBox));
-
-  rt_result = hipMemcpyHtoD(*HIPDEVICEPTR_T(bvh->custom_prim_aabb.aabbs),
-                            curve_bound.data(),
-                            curve_bound.size() * sizeof(BoundBox));
+  bvh->custom_primitive_bound.copy_to_device();
+  bvh->custom_prim_aabb.aabbs = (void *)bvh->custom_primitive_bound.device_pointer;
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
@@ -650,8 +668,9 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 
   hiprtGeometryBuildInput geomInput;
 
-  hiprtAABBListPrimitive point_aabb;
-  vector<BoundBox> point_bound;
+  //hiprtAABBListPrimitive point_aabb;
+  //vector<BoundBox> point_bound;
+
 
   const Attribute *point_attr_mP = NULL;
   if (pointcloud->has_motion_blur()) {
@@ -664,17 +683,25 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
   const float3 *motion_data = (point_attr_mP) ? point_attr_mP->data_float3() : NULL;
   const size_t num_steps = pointcloud->get_motion_steps();
 
+  int num_bounds = 0;
+
   if (point_attr_mP == NULL) {
+    bvh->custom_primitive_bound.alloc(num_points);
     for (uint j = 0; j < num_points; j++) {
       const PointCloud::Point point = pointcloud->get_point(j);
       BoundBox bounds = BoundBox::empty;
       point.bounds_grow(points_data, radius_data, bounds);
       if (bounds.valid()) {
-        point_bound.push_back(bounds);
+        bvh->custom_primitive_bound[num_bounds] = bounds;
+        bvh->custom_prim_info[num_bounds].x = j;
+        bvh->custom_prim_info[num_bounds].y = PRIMITIVE_POINT;
+        num_bounds++;
       }
     }
   }
   else if (bvh->params.num_motion_point_steps == 0) {
+
+      bvh->custom_primitive_bound.alloc(num_points*num_steps);
 
     for (uint j = 0; j < num_points; j++) {
       const PointCloud::Point point = pointcloud->get_point(j);
@@ -684,7 +711,10 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
         point.bounds_grow(motion_data + step * num_points, radius_data, bounds);
       }
       if (bounds.valid()) {
-        point_bound.push_back(bounds);
+        bvh->custom_primitive_bound[num_bounds] = bounds;
+        bvh->custom_prim_info[num_bounds].x = j;
+        bvh->custom_prim_info[num_bounds].y = PRIMITIVE_POINT;
+        num_bounds++;
       }
     }
   }
@@ -692,6 +722,8 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 
     const int num_bvh_steps = bvh->params.num_motion_point_steps * 2 + 1;
     const float num_bvh_steps_inv_1 = 1.0f / (num_bvh_steps - 1);
+
+    bvh->custom_primitive_bound.alloc(num_points * num_bvh_steps);
 
     for (uint j = 0; j < num_points; j++) {
       const PointCloud::Point point = pointcloud->get_point(j);
@@ -713,26 +745,26 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
         bounds.grow(curr_bounds);
         if (bounds.valid()) {
           const float prev_time = (float)(bvh_step - 1) * num_bvh_steps_inv_1;
-          point_bound.push_back(bounds);
-          bvh->motion_blur_time.push_back(make_float2(curr_time, prev_time));
+          bvh->custom_primitive_bound[num_bounds] = bounds;
+          bvh->custom_prim_info[num_bounds].x = j;
+          bvh->custom_prim_info[num_bounds].y = PRIMITIVE_MOTION_POINT;
+          bvh->prim_time[num_bounds].x = curr_time;
+          bvh->prim_time[num_bounds].y = prev_time;
+          num_bounds++;
         }
         prev_bounds = curr_bounds;
       }
     }
   }
 
-  point_aabb.aabbCount = point_bound.size();
-  point_aabb.aabbStride = sizeof(BoundBox);
+  bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
+  bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
+  bvh->custom_primitive_bound.copy_to_device();
+  bvh->custom_prim_aabb.aabbs = (void *)bvh->custom_primitive_bound.device_pointer;
 
-  hipError_t rt_result = hipMalloc(HIPDEVICEPTR_T(point_aabb.aabbs),
-                                   point_bound.size() * sizeof(BoundBox));
-
-  rt_result = hipMemcpyHtoD(*HIPDEVICEPTR_T(point_aabb.aabbs),
-                            point_bound.data(),
-                            point_bound.size() * sizeof(BoundBox));
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
-  geomInput.aabbList.primitive = &point_aabb;
+  geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
   geomInput.geomType = Point;
 
   return geomInput;
@@ -812,9 +844,12 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   vector<hiprtFrameSRT> transforms;
   array<hiprtFrameMatrix> transform_matrix;
 
-  vector<int2> packed_type;
-  unordered_map<Geometry *, int2> packed_type_map;
-  size_t curve_offset = 0;
+  unordered_map<Geometry *, int2> prim_info_map;
+  size_t custom_prim_offset = 0;
+
+  unordered_map<Geometry *, int> prim_time_map;
+  size_t time_offset = 0;
+  
 
   size_t num_instances = 0;
   int blender_instance_id = 0;
@@ -826,7 +861,8 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   geometry.alloc(num_object);
   blas_ptr.alloc(num_object);
   transform_headers_.alloc(num_object);
-  curve_intersect_data_offset.alloc(num_object);
+  custom_prim_info_offset.alloc(num_object);
+  prim_time_offset.alloc(num_object);
 
   foreach (Object *ob, objects) {
 
@@ -855,34 +891,65 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
     MAKE_TRANSFORM(hiprt_transform_matrix.matrix, identity_matrix)
 
     if (hiprt_geom_current) {
-      bool has_curve_prim = current_bvh->packed_type.size() > 0;
+      bool is_custom_prim = current_bvh->custom_prim_info.size() > 0;
 
-      if (has_curve_prim) {
+      if (is_custom_prim) {
 
-        unordered_map<Geometry *, int2>::iterator it = packed_type_map.find(geom);
+          bool has_motion_blur = current_bvh->prim_time.size() > 0;
 
-        if (packed_type_map.find(geom) != packed_type_map.end()) {
+        unordered_map<Geometry *, int2>::iterator it = prim_info_map.find(geom);
 
-          curve_intersect_data_offset[blender_instance_id] = it->second;
+        if (prim_info_map.find(geom) != prim_info_map.end()) {
+
+          custom_prim_info_offset[blender_instance_id] = it->second;
+
+          if (has_motion_blur) {
+
+            prim_time_offset[blender_instance_id] = prim_time_map[geom];
+          }
+
         }
         else {
-          int offset = packed_type.size();
+          int offset = bvh->custom_prim_info.size();
 
-          packed_type_map[geom].x = offset;
-          packed_type_map[geom].y = curve_offset;
-          packed_type.resize(offset + current_bvh->packed_type.size());
-          memcpy(packed_type.data() + offset,
-                 current_bvh->packed_type.data(),
-                 current_bvh->packed_type.size() * sizeof(int2));
+          prim_info_map[geom].x = offset;
+          prim_info_map[geom].y = custom_prim_offset;
 
-          curve_intersect_data_offset[blender_instance_id].x = offset;
-          curve_intersect_data_offset[blender_instance_id].y = curve_offset;
-          curve_offset += ((Hair *)geom)->num_curves();
+          bvh->custom_prim_info.resize(offset + current_bvh->custom_prim_info.size());
+          memcpy(bvh->custom_prim_info.data() + offset,
+                 current_bvh->custom_prim_info.data(),
+                 current_bvh->custom_prim_info.size() * sizeof(int2));
+
+          custom_prim_info_offset[blender_instance_id].x = offset;
+          custom_prim_info_offset[blender_instance_id].y = custom_prim_offset;
+
+          if (geom->geometry_type == Geometry::HAIR) {
+            custom_prim_offset += ((Hair *)geom)->num_curves();
+          }
+          else if (geom->geometry_type == Geometry::POINTCLOUD) {
+            custom_prim_offset += ((PointCloud *)geom)->num_points();
+          }
+          else {
+            custom_prim_offset += ((Mesh *)geom)->num_triangles();
+          }
+
+          if (has_motion_blur) {
+            int time_offset = bvh->prim_time.size();
+            prim_time_map[geom] = time_offset;
+
+            memcpy(bvh->prim_time.data() + time_offset,
+                   current_bvh->prim_time.data(),
+                   current_bvh->prim_time.size() * sizeof(float2));
+
+            prim_time_offset[blender_instance_id] = time_offset;
+          }
+          else
+            prim_time_offset[blender_instance_id] = -1;
 
         }
       }
       else
-        curve_intersect_data_offset[blender_instance_id] = {-1, -1};
+        custom_prim_info_offset[blender_instance_id] = {-1, -1};
 
 
       hiprtTransformHeader current_header = {0};
@@ -891,8 +958,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
       if (ob->get_motion().size()) {
         int motion_size = ob->get_motion().size();
         assert(motion_size == 1);
-        bool motion_blur = geom->has_motion_blur();
-        const Attribute *attr_mP = geom->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+
         const int num_bvh_steps = bvh->params.num_motion_triangle_steps;
         const int num_bvh_steps_blas = current_bvh->params.num_motion_curve_steps;
 
@@ -936,15 +1002,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   #endif
 
   hipError_t rt_result; 
-
-  // copy from host
-  if (scene_input_ptr.frameType == hiprtFrameTypeSRT) {
-    rt_result = hipMalloc(HIPDEVICEPTR_T(scene_input_ptr.instanceFrames),
-                          num_instances * sizeof(hiprtFrameSRT));
-    rt_result = hipMemcpyHtoD(*HIPDEVICEPTR_T(scene_input_ptr.instanceFrames),
-                              transforms.begin()._Ptr,
-                              num_instances * sizeof(hiprtFrameSRT));
-  }
  
   instance_id_map_.copy_to_device();
   blender_object_id.copy_to_device();
@@ -984,30 +1041,32 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   rt_err = hiprtBuildScene(
       hiprt_context, build_operation, &scene_input_ptr, &options, (void *)scratch_buffer.device_pointer, 0, scene);
 
-  //setting up function pointers
 
-    hipModule_t current_hipModule = hipModule;
+    if (bvh->custom_prim_info.size()) {
+      size_t data_size = bvh->custom_prim_info.size();
+      custom_prim_info.alloc(data_size);
+      custom_prim_info.host_pointer = bvh->custom_prim_info.data();
+      custom_prim_info.data_elements = 2;
+      custom_prim_info.data_type = TYPE_INT;
+      custom_prim_info.data_size = data_size;
+      custom_prim_info.copy_to_device();
+      custom_prim_info.host_pointer = 0;
 
-    if (packed_type.size()) {
-      size_t data_size = packed_type.size();
-      curve_intersect_data.alloc(data_size);
-      curve_intersect_data.host_pointer = packed_type.data();
-      curve_intersect_data.data_elements = 2;
-      curve_intersect_data.data_type = TYPE_INT;
-      curve_intersect_data.data_size = data_size;
-      curve_intersect_data.copy_to_device();
-      curve_intersect_data.host_pointer = 0;
-
-      curve_intersect_data_offset.copy_to_device();
-
+      custom_prim_info_offset.copy_to_device();
     }
 
-    //const char *filter_functions[] = {"skip_self_filter_func", "shadow_filter_func", "local_filter_func", "volume_filter_func", };
-    //const char *intersect_function[] = {
-    //    "none",
-    //    "curve_intersect_func",
-    //    "motion_triangle_intersect_func",
-    //    "point_intersect_func"};
+    if (bvh->prim_time.size()) {
+      size_t data_size = bvh->prim_time.size();
+      prim_time.alloc(data_size);
+      prim_time.host_pointer = bvh->prim_time.data();
+      prim_time.data_elements = 2;
+      prim_time.data_type = TYPE_FLOAT;
+      prim_time.data_size = data_size;
+      prim_time.copy_to_device();
+      prim_time.host_pointer = 0;
+
+      prim_time_offset.copy_to_device();
+    }
 
     const char *tables[] = {"__table_closest_intersect",
                             "__table_shadow_intersect",
@@ -1015,117 +1074,16 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                             "__table_volume_intersect"};
 
 
-   /* device_ptr intersection_func_ptr[Max_Primitive_Type] = {0};
-    device_ptr intersection_filter_func_ptr[Max_Intersect_Filter_Function] = {0};
-
-    size_t func_ptr_size = 0;
-
-
-    for (int prim_type = 1; prim_type < Max_Primitive_Type; prim_type++) {
-
-      rt_result = hipModuleGetGlobal(&intersection_func_ptr[prim_type],
-                                     &func_ptr_size,
-                                     current_hipModule,
-                                     intersect_function[prim_type]);
-      assert(result == 0);
-    }
-
-    for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
-         filter_function++) {
-
-        rt_result = hipModuleGetGlobal(&intersection_filter_func_ptr[filter_function],
-                                     &func_ptr_size,
-                                     current_hipModule,
-                                     filter_functions[filter_function]);
-      assert(result == 0);
-
-    }*/
-
     for (int table_index = 0; table_index < Max_Intersect_Filter_Function; table_index++) {
 
       size_t table_ptr_size = 0;
       device_ptr table_device_ptr;
 
       hip_assert(hipModuleGetGlobal(
-          &table_device_ptr, &table_ptr_size, current_hipModule, tables[table_index]));
+          &table_device_ptr, &table_ptr_size, hipModule, tables[table_index]));
       hip_assert(hipMemcpyHtoD(table_device_ptr, &functions_table, table_ptr_size));
     }
 
-
-#if 0
-    for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
-         filter_function++) {
-
-        hiprtError hiprt_result = hiprtCreateCustomFuncTable(hiprt_context, &custom_functions_table[filter_function]);
-        assert(hiprt_result == hiprtSuccess);
-        //there are four tables for each intersection kernel and each table has a different intersection fiter
-        //each table has four entries (or whatever the number of primitive is) for custom intersection per primitive
-        //all table entries (for a single table) share the same intersection filter
-
-        hiprtCustomFuncSet custom_functions = {0};
-#  ifdef HIPRT_INTERSECTION_FILTERS
-        rt_result = hipMemcpyDtoH(&custom_functions.filterFunc,
-                                  intersection_filter_func_ptr[filter_function],
-                                  func_ptr_size);
-
-        assert(rt_result == hipSuccess);
-#  endif
-
-        for (int prim = 0; prim < Max_Primitive_Type; prim++) {
-
-          if (prim != Triangle) {
-            rt_result = hipMemcpyDtoH(
-                &custom_functions.intersectFunc, intersection_func_ptr[prim], func_ptr_size);
-            assert(rt_result == hipSuccess);
-          }
-
-          switch (prim) {
-            //case Trianlge:
-              //break;
-            case Curve: {
-             // copy intersection function data
-              if (0){  //(packed_type.size() > 0) { //change pack_type to device_vector
-               device_ptr intersect_func_data = 0;
-
-                rt_result = hipMalloc(&intersect_func_data, packed_type.size() * sizeof(int2));
-               assert(hiprt_result == hiprtSuccess);
-                rt_result = hipMemcpyHtoD(
-                    intersect_func_data, packed_type.data(), packed_type.size() * sizeof(int2));
-               assert(hiprt_result == hiprtSuccess);
-
-                custom_functions.intersectFuncData = (void *)intersect_func_data;
-              }
-              break;
-            }
-            case Motion_Triangle: {
-              // copy time
-              break;
-            }
-            case Point: {
-              // if has motion copy time
-              break;
-            }
-            default:
-              assert((Primitive_Type)prim == Triangle);
-
-          }
-
-          hiprt_result = hiprtSetCustomFuncTable(
-              hiprt_context, custom_functions_table[filter_function], prim, custom_functions);
-
-          assert(hiprt_result == hiprtSuccess);
-
-          size_t table_ptr_size = 0;
-          device_ptr table_device_ptr;
-
-          hip_assert(hipModuleGetGlobal(
-              &table_device_ptr, &table_ptr_size, current_hipModule, tables[filter_function]));
-          hip_assert(hipMemcpyHtoD(
-              table_device_ptr, &custom_functions_table[filter_function], table_ptr_size));
-
-        }
-    }
-    #endif
   return scene;
 }
 

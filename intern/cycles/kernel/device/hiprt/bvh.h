@@ -39,6 +39,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   payload.visibility = visibility;
   payload.prim_type = PRIMITIVE_NONE;
   payload.ray_time = ray->time;
+  payload.prim_type = PRIMITIVE_TRIANGLE;
 
   hiprtHit hit = {};
 
@@ -123,8 +124,13 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   const int object_flag = kernel_data_fetch(object_flag, local_object);
   if (!(object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
 
+#  if BVH_FEATURE(BVH_MOTION)
+    bvh_instance_motion_push(kg, local_object, ray, &P, &dir, &idir);
+#  else
     bvh_instance_push(kg, local_object, ray, &P, &dir, &idir);
+#  endif
   }
+
   hiprtRay ray_hip;
   ray_hip.origin = P;
   ray_hip.direction = dir;
@@ -225,6 +231,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   payload.self = ray->self;
   payload.kg = kg;
   payload.visibility = visibility;
+  payload.prim_type = PRIMITIVE_TRIANGLE;
   payload.ray_time = ray->time;
 
   GET_TRAVERSAL_STACK()

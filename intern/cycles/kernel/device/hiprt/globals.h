@@ -13,20 +13,20 @@ CCL_NAMESPACE_BEGIN
 
 struct KernelGlobalsGPU {
   int unused[1];
-#if (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
+#if defined(__HIPCC_RTC__)
 #  ifdef HIPRT_SHARED_STACK
   int *shared_stack;
 #  endif
 #endif
 };
 typedef ccl_global KernelGlobalsGPU *ccl_restrict KernelGlobals;
-#if (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
+#if defined(__HIPCC_RTC__)
 #  ifdef HIPRT_SHARED_STACK
 typedef hiprtGlobalStack Stack;
 #  endif
 #endif
 
-#if defined(HIPRT_SHARED_STACK) && (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
+#if defined(HIPRT_SHARED_STACK) && defined(__HIPCC_RTC__)
 #  define SET_SHARED_MEMORY() \
     ccl_gpu_shared int shared_stack[SHARED_STACK_SIZE * BLOCK_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
@@ -40,8 +40,10 @@ struct KernelParamsHIPRT {
 #define KERNEL_DATA_ARRAY(type, name) const type *name;
   KERNEL_DATA_ARRAY(int, __blender_object_id)
   KERNEL_DATA_ARRAY(uint64_t, __instance_geometry)
-  KERNEL_DATA_ARRAY(int2, __curve_intersect_data_offset)
-  KERNEL_DATA_ARRAY(int2, __curve_intersect_data)
+  KERNEL_DATA_ARRAY(int2, __custom_prim_info_offset)
+  KERNEL_DATA_ARRAY(int2, __custom_prim_info)
+  KERNEL_DATA_ARRAY(int, __prim_time_offset)
+  KERNEL_DATA_ARRAY(float2, __prim_time)
 #include "kernel/data_arrays.h"
 
   /* Integrator state */
@@ -50,7 +52,7 @@ struct KernelParamsHIPRT {
 
 #ifdef __KERNEL_GPU__
 __constant__ KernelParamsHIPRT kernel_params;
-#if (defined(__HIPCC_RTC__) || defined(__OFFLINE_COMPILER__))
+#if defined(__HIPCC_RTC__)
 __attribute__((device)) int global_stack_buffer[1024 * 1024 * 512];
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtFuncTable __table_closest_intersect;

@@ -31,6 +31,7 @@ BVHHIPRT::~BVHHIPRT()
 {
   HIPRTDevice *hiprt_device = static_cast<HIPRTDevice *>(device);
   hiprtContext hiprt_context = hiprt_device->get_hiprt_context();
+  custom_primitive_bound.free();
   triangle_index.free();
   vertex_data.free();
   hiprtDestroyGeometry(hiprt_context, hiprt_geom);

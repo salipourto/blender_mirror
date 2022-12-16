@@ -137,6 +137,8 @@ DeviceType Device::type_from_string(const char *name)
     return DEVICE_METAL;
   else if (strcmp(name, "ONEAPI") == 0)
     return DEVICE_ONEAPI;
+  else if (strcmp(name, "HIPRT") == 0)
+    return DEVICE_HIPRT;
 
   return DEVICE_NONE;
 }
@@ -157,6 +159,8 @@ string Device::string_from_type(DeviceType type)
     return "METAL";
   else if (type == DEVICE_ONEAPI)
     return "ONEAPI";
+  else if (type == DEVICE_HIPRT)
+    return "HIPRT";
 
   return "";
 }
@@ -179,6 +183,9 @@ vector<DeviceType> Device::available_types()
 #endif
 #ifdef WITH_ONEAPI
   types.push_back(DEVICE_ONEAPI);
+#endif
+#ifdef WITH_HIPRT
+  types.push_back(DEVICE_HIPRT);
 #endif
   return types;
 }

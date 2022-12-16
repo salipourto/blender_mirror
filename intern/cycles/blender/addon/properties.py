@@ -1479,7 +1479,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
     def get_device_types(self, context):
         import _cycles
-        has_cuda, has_optix, has_hip, has_metal, has_oneapi = _cycles.get_device_types()
+        has_cuda, has_optix, has_hip, has_metal, has_oneapi, has_hiprt = _cycles.get_device_types()
 
         list = [('NONE', "None", "Don't use compute device", 0)]
         if has_cuda:
@@ -1695,10 +1695,11 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 row.prop(self, "use_metalrt")
 
         if compute_device_type == 'HIP':
-            import platform
+            has_cuda, has_optix, has_hip, has_metal, has_oneapi, has_hiprt = _cycles.get_device_types()
             row = layout.row()
-            row.use_property_split = True
+            row.enabled = has_hiprt
             row.prop(self, "use_hiprt")
+
 
     def draw(self, context):
         self.draw_impl(self.layout, context)

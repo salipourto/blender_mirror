@@ -171,8 +171,11 @@ endif()
 
 if(WITH_CYCLES_DEVICE_HIP)
   add_definitions(-DWITH_HIP)
-  add_definitions(-DWITH_HIPRT)
+  if(WITH_CYCLES_DEVICE_HIPRT)
+    add_definitions(-DWITH_HIPRT)
+  endif()
 endif()
+
 if(WITH_CYCLES_DEVICE_METAL)
   list(APPEND LIB
     ${METAL_LIBRARY}

@@ -42,6 +42,7 @@ enum DeviceType {
   DEVICE_HIP,
   DEVICE_METAL,
   DEVICE_ONEAPI,
+  DEVICE_HIPRT,
   DEVICE_DUMMY,
 };
 

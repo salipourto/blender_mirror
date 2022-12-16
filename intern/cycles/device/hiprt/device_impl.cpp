@@ -862,12 +862,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                                            build_blas(current_bvh, geom, options) :
                                            current_bvh->hiprt_geom;
 
-
-    hiprtFrameSRT hiprt_transform = {0};
-    hiprt_transform.translation = make_hiprtFloat3(0.0f, 0.0f, 0.0f);
-    hiprt_transform.scale = make_hiprtFloat3(1.0f, 1.0f, 1.0f);
-    hiprt_transform.rotation = make_hiprtFloat4(0.0f, 0.0f, 1.0f, 0.0f);
-
     hiprtFrameMatrix hiprt_transform_matrix = {0};
     Transform identity_matrix = transform_identity();
     get_hiprt_transform(hiprt_transform_matrix.matrix, identity_matrix);

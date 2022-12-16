@@ -13,20 +13,20 @@ CCL_NAMESPACE_BEGIN
 
 struct KernelGlobalsGPU {
   int unused[1];
-#if defined(__HIPCC_RTC__)
+#if defined(__HIPRT__)
 #  ifdef HIPRT_SHARED_STACK
   int *shared_stack;
 #  endif
 #endif
 };
 typedef ccl_global KernelGlobalsGPU *ccl_restrict KernelGlobals;
-#if defined(__HIPCC_RTC__)
+#if defined(__HIPRT__)
 #  ifdef HIPRT_SHARED_STACK
 typedef hiprtGlobalStack Stack;
 #  endif
 #endif
 
-#if defined(HIPRT_SHARED_STACK) && defined(__HIPCC_RTC__)
+#if defined(HIPRT_SHARED_STACK) && defined(__HIPRT__)
 #  define SET_SHARED_MEMORY() \
     ccl_gpu_shared int shared_stack[HIPRT_SHARED_STACK_SIZE * HIPRT_THREAD_GROUP_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
@@ -52,7 +52,7 @@ struct KernelParamsHIPRT {
 
 #ifdef __KERNEL_GPU__
 __constant__ KernelParamsHIPRT kernel_params;
-#if defined(__HIPCC_RTC__)
+#  if defined(__HIPRT__)
 __attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtFuncTable __table_closest_intersect;

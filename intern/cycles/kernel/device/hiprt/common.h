@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Copyright 2011-2022 Blender Foundation */
 
-#if defined(__HIPCC_RTC__)
+#if defined(__HIPRT__)
 struct RayPayload {
-  RaySelfPrimitives self;
   KernelGlobals kg;
+  RaySelfPrimitives self;
   uint visibility;
   int prim_type;
   float ray_time;
@@ -21,7 +21,6 @@ struct ShadowPayload {
   uint num_hits;
   uint *r_num_recorded_hits;
   float *r_throughput;
-  bool is_hit;
 };
 
 struct LocalPayload {
@@ -31,7 +30,6 @@ struct LocalPayload {
   float ray_time;
   int local_object;
   uint max_hits;
-  bool is_hit;
   uint *lcg_state;
   LocalIntersection *local_isect;
 };
@@ -179,6 +177,7 @@ ccl_device_inline bool motion_triangle_custom_intersect(const hiprtRay &ray,
                                                  void *payload,
                                                  hiprtHit &hit)
 {
+  #ifdef MOTION_BLUR
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
   int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
@@ -213,6 +212,9 @@ ccl_device_inline bool motion_triangle_custom_intersect(const hiprtRay &ray,
     local_payload->prim_type = isect.type;
   }
   return b_hit;
+  #else
+	  return false;
+  #endif
 
 }
 
@@ -221,6 +223,7 @@ ccl_device_inline bool motion_triangle_custom_local_intersect(const hiprtRay &ra
                                                               void *payload,
                                                               hiprtHit &hit)
 {
+  #ifdef MOTION_BLUR
   LocalPayload *local_payload = (LocalPayload *)payload;
   KernelGlobals kg = local_payload->kg;
   int object_id = local_payload->local_object;
@@ -254,6 +257,9 @@ ccl_device_inline bool motion_triangle_custom_local_intersect(const hiprtRay &ra
     local_payload->prim_type = PRIMITIVE_MOTION_TRIANGLE;
   }
   return b_hit;
+  #else
+	  return false;
+  #endif
 }
 
 ccl_device_inline bool motion_triangle_custom_volume_intersect(const hiprtRay &ray,
@@ -261,6 +267,7 @@ ccl_device_inline bool motion_triangle_custom_volume_intersect(const hiprtRay &r
                                                               void *payload,
                                                               hiprtHit &hit)
 {
+	#ifdef MOTION_BLUR
 
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
@@ -301,6 +308,9 @@ ccl_device_inline bool motion_triangle_custom_volume_intersect(const hiprtRay &r
     local_payload->prim_type = isect.type;
   }
   return b_hit;
+  #else
+	  return false;
+  #endif
 
 }
 
@@ -309,7 +319,7 @@ ccl_device_inline bool point_custom_intersect(const hiprtRay &ray,
                                               void *payload,
                                               hiprtHit &hit)
 {
-
+#ifdef POINT_CLOUD
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
   int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
@@ -322,7 +332,6 @@ ccl_device_inline bool point_custom_intersect(const hiprtRay &ray,
   int prim_id_global = prim_id_local + prim_offset;
 
   int type = prim_info.y;
-
 
 
   if (intersection_skip_self_shadow(local_payload->self, object_id, prim_id_global))
@@ -362,6 +371,9 @@ ccl_device_inline bool point_custom_intersect(const hiprtRay &ray,
     local_payload->prim_type = isect.type;
   }
   return b_hit;
+  #else
+	  return false;
+  #endif
 
 }
 
@@ -408,13 +420,11 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
 #  ifdef __VISIBILITY_FLAG__
 
   if ((kernel_data_fetch(objects, object).visibility & payload->visibility) == 0) {
-    payload->is_hit = false;
     return true;  // no hit - continue traversal
   }
 #  endif
 
   if (intersection_skip_self_shadow(self, object, prim)) {
-    payload->is_hit = false;
     return true;  // no hit -continue traversal
   }
 
@@ -429,7 +439,6 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
     prim = segment.prim;
 
     /*if (u == 0.0f || u == 1.0f) {
-      payload->is_hit = true;
         return true;
     }*/
   }
@@ -437,14 +446,12 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
 
 #  ifndef __TRANSPARENT_SHADOWS__
 
-  payload->is_hit = true;
   return false;
 
 #  else
 
   if (num_hits >= max_hits ||
       !(intersection_get_shader_flags(NULL, prim, type) & SD_HAS_TRANSPARENT_SHADOW)) {
-    payload->is_hit = true;
     return false;
   }
 
@@ -455,7 +462,6 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
     payload->num_hits += 1;
 
     if (throughput < CURVE_SHADOW_TRANSPARENCY_CUTOFF) {
-      payload->is_hit = true;
       return false;
     }
     else {
@@ -485,7 +491,6 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
 
     if (ray_tmax >= max_recorded_t) {
 
-      payload->is_hit = true;
       return true;
     }
 
@@ -517,20 +522,17 @@ ccl_device_inline bool local_intersection_filter(const hiprtRay &ray,
   int prim = hit.primID + prim_offset;
 #    ifndef __RAY_OFFSET__
   if (intersection_skip_self_local(payload->self, prim)) {
-    payload->is_hit = false;
     return true;  // continue search
   }
 #    endif
   uint max_hits = payload->max_hits;
   if (max_hits == 0) {
-    payload->is_hit = true;
     return false;  // stop search
   }
   int hit_index = 0;
   if (payload->lcg_state) {
     for (int i = min(max_hits, payload->local_isect->num_hits) - 1; i >= 0; --i) {
       if (hit.t == payload->local_isect->hits[i].t) {
-        payload->is_hit = false;
         return true;  // continue search
       }
     }
@@ -538,14 +540,12 @@ ccl_device_inline bool local_intersection_filter(const hiprtRay &ray,
     if (payload->local_isect->num_hits > max_hits) {
       hit_index = lcg_step_uint(payload->lcg_state) % payload->local_isect->num_hits;
       if (hit_index >= max_hits) {
-        payload->is_hit = false;
         return true;  // continue search
       }
     }
   }
   else {
     if (payload->local_isect->num_hits && hit.t > payload->local_isect->hits[0].t) {
-      payload->is_hit = false;
       return true;
     }
     payload->local_isect->num_hits = 1;
@@ -561,7 +561,6 @@ ccl_device_inline bool local_intersection_filter(const hiprtRay &ray,
 
   payload->local_isect->Ng[hit_index] = hit.normal;
 
-  payload->is_hit = false;
   return true;
 
 #  endif
@@ -584,62 +583,6 @@ ccl_device_inline bool volume_intersection_filter(const hiprtRay &ray,
     return true;
   else
     return false;
-}
-
-
-ccl_device_inline bool hiprt_shadow_all(KernelGlobals kg,
-                                        IntegratorShadowState state,
-                                        ccl_private const Ray *ray,
-                                        const uint visibility,
-                                        const uint max_hits,
-                                        ccl_private uint *r_num_recorded_hits,
-                                        ccl_private float *r_throughput)
-{
-
-  hiprtRay ray_hip;
-  
-  SET_HIPRT_RAY(ray_hip, ray)
-
-  ShadowPayload payload;
-
-  payload.kg = kg;
-  payload.self = ray->self;
-  payload.in_state = state;
-  payload.max_hits = max_hits;
-  payload.visibility = visibility;
-  payload.prim_type = PRIMITIVE_TRIANGLE;
-  payload.ray_time = ray->time;
-  payload.num_hits = 0;
-  payload.r_num_recorded_hits = r_num_recorded_hits;
-  payload.r_throughput = r_throughput;
-  payload.is_hit = false;
-
-  GET_TRAVERSAL_STACK()
-  GET_TRAVERSAL_ANY_HIT(__table_shadow_intersect, 1)
-  hiprtHit hit = traversal.getNextHit();
-#  ifndef HIPRT_INTERSECTION_FILTERS
-  bool get_next = true;
-
-  float ray_max = ray_hip.maxT;
-  const uint max_record_hits = min(max_hits, INTEGRATOR_SHADOW_ISECT_SIZE);
-  while (get_next) {
-    if (!hit.hasHit() || (hiprtTraversalStateStackOverflow == traversal.getCurrentState()))
-      return payload.is_hit;
-    ray_max = hit.t;
-
-    get_next = shadow_all_hit_filter(
-        ray_hip, hit.instanceID, hit.primID, 0, &payload, hit.uv, hit.normal, ray_max);
-
-    r_num_recorded_hits = payload.r_num_recorded_hits;
-    r_throughput = payload.r_throughput;
-
-    hit = traversal.getNextHit();
-  }
-#  else
-  r_num_recorded_hits = payload.r_num_recorded_hits;
-  r_throughput = payload.r_throughput;
-#  endif
-  return payload.is_hit;
 }
 #endif
 

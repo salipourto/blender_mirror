@@ -143,7 +143,6 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   payload.self = ray->self;
   payload.local_object = local_object;
   payload.max_hits = max_hits;
-  payload.is_hit = false;
   payload.lcg_state = lcg_state;
   payload.local_isect = local_isect;
 
@@ -178,8 +177,8 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   hiprtGeomTraversalAnyHit traversal(
       local_geom, ray_hip, table, hiprtTraversalHintDefault, &payload);
 #    endif
-  traversal.getNextHit();
-  return payload.is_hit;
+  hiprtHit hit = traversal.getNextHit();
+  return hit.hasHit();
 
 #  endif
 }
@@ -202,7 +201,27 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals kg,
     return false;
   }
 
-  return hiprt_shadow_all(kg, state, ray, visibility, max_hits, num_recorded_hits, throughput);
+  hiprtRay ray_hip;
+  
+  SET_HIPRT_RAY(ray_hip, ray)
+  ShadowPayload payload;
+  payload.kg = kg;
+  payload.self = ray->self;
+  payload.in_state = state;
+  payload.max_hits = max_hits;
+  payload.visibility = visibility;
+  payload.prim_type = PRIMITIVE_TRIANGLE;
+  payload.ray_time = ray->time;
+  payload.num_hits = 0;
+  payload.r_num_recorded_hits = num_recorded_hits;
+  payload.r_throughput = throughput;
+  GET_TRAVERSAL_STACK()
+  GET_TRAVERSAL_ANY_HIT(__table_shadow_intersect, 1)
+  hiprtHit hit = traversal.getNextHit();
+  num_recorded_hits = payload.r_num_recorded_hits;
+  throughput = payload.r_throughput;
+  return hit.hasHit();  
+
 }
 #endif /* __SHADOW_RECORD_ALL__ */
 

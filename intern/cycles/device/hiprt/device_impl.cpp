@@ -193,22 +193,6 @@ if (use_lds) {
                                           func_name_set,
                                           &intersection);
 
-
-    HIPRT_API hiprtError hiprtBuildTraceProgram(hiprtContext context,
-                                                uint32_t numFunctions,
-                                                const char **functionNames,
-                                                const char *src,
-                                                const char *name,
-                                                uint32_t numHeaders,
-                                                const char **headersIn,
-                                                const char **includeNamesIn,
-                                                uint32_t numOptions,
-                                                const char **options,
-                                                uint32_t numGeomTypes,
-                                                uint32_t numRayTypes,
-                                                hiprtFuncNameSet *funcNameSets,
-                                                void *outProg);
-
     size_t binary_size = 0;
     if (e == 0)
       e = hiprtBuildTraceGetBinary(&intersection, &binary_size, nullptr);

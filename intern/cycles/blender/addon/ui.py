@@ -122,6 +122,11 @@ def use_oneapi(context):
 
     return (get_device_type(context) == 'ONEAPI' and cscene.device == 'GPU')
 
+def use_hiprt(context):
+    cscene = context.scene.cycles
+
+    return (get_device_type(context) == 'HIPRT' and cscene.device == 'GPU')
+
 
 def use_multi_device(context):
     cscene = context.scene.cycles

@@ -41,7 +41,6 @@ vector<DeviceInfo> Device::cpu_devices;
 vector<DeviceInfo> Device::hip_devices;
 vector<DeviceInfo> Device::metal_devices;
 vector<DeviceInfo> Device::oneapi_devices;
-vector<DeviceInfo> Device::hiprt_devices;
 uint Device::devices_initialized_mask = 0;
 
 /* Device */
@@ -138,8 +137,6 @@ DeviceType Device::type_from_string(const char *name)
     return DEVICE_METAL;
   else if (strcmp(name, "ONEAPI") == 0)
     return DEVICE_ONEAPI;
-  else if (strcmp(name, "HIPRT") == 0)
-    return DEVICE_HIPRT;
 
   return DEVICE_NONE;
 }
@@ -160,8 +157,6 @@ string Device::string_from_type(DeviceType type)
     return "METAL";
   else if (type == DEVICE_ONEAPI)
     return "ONEAPI";
-  else if (type == DEVICE_HIPRT)
-    return "HIPRT";
 
   return "";
 }
@@ -178,9 +173,6 @@ vector<DeviceType> Device::available_types()
 #endif
 #ifdef WITH_HIP
   types.push_back(DEVICE_HIP);
-#endif
-#ifdef WITH_HIPRT
-  types.push_back(DEVICE_HIPRT);
 #endif
 #ifdef WITH_METAL
   types.push_back(DEVICE_METAL);
@@ -229,22 +221,19 @@ vector<DeviceInfo> Device::available_devices(uint mask)
   }
 #endif
 
-#if defined(WITH_HIP) || defined(WITH_HIPRT)
-  if (mask & (DEVICE_MASK_HIP | DEVICE_MASK_HIPRT)) {
+#ifdef WITH_HIP
+  if (mask & DEVICE_MASK_HIP) {
     if (!(devices_initialized_mask & DEVICE_MASK_HIP)) {
       if (device_hip_init()) {
         device_hip_info(hip_devices);
       }
       devices_initialized_mask |= DEVICE_MASK_HIP;
     }
-    if (mask & DEVICE_MASK_HIP) {
-      foreach (DeviceInfo &info, hip_devices) {
-        devices.push_back(info);
-      }
+    foreach (DeviceInfo &info, hip_devices) {
+      devices.push_back(info);
     }
   }
 #endif
-
 
 #ifdef WITH_ONEAPI
   if (mask & DEVICE_MASK_ONEAPI) {
@@ -319,15 +308,6 @@ string Device::device_capabilities(uint mask)
     if (device_hip_init()) {
       capabilities += "\nHIP device capabilities:\n";
       capabilities += device_hip_capabilities();
-    }
-  }
-#endif
-
- #ifdef WITH_HIPRT
-  if (mask & DEVICE_MASK_HIPRT) {
-    if (device_hip_init()) {
-      capabilities += "\nHIPRT device capabilities:\n";
-      //capabilities += device_hip_capabilities();
     }
   }
 #endif
@@ -446,7 +426,6 @@ void Device::free_memory()
   oneapi_devices.free_memory();
   cpu_devices.free_memory();
   metal_devices.free_memory();
-  hiprt_devices.free_memory();
 }
 
 unique_ptr<DeviceQueue> Device::gpu_queue_create()

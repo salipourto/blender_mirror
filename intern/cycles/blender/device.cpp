@@ -113,9 +113,11 @@ DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scen
     device.use_metalrt = true;
   }
 
+  #ifdef WITH_HIPRT
   if (get_boolean(cpreferences, "use_hiprt")) {
     device.use_hiprt = true;
   }
+  #endif
 
   return device;
 }

@@ -449,7 +449,6 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 
     const Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
     const size_t num_triangles = mesh->num_triangles();
-    //vector<BoundBox> motion_bound;
 
     const int num_bvh_steps = bvh->params.num_motion_triangle_steps * 2 + 1;
     const float num_bvh_steps_inv_1 = 1.0f / (num_bvh_steps - 1);
@@ -495,7 +494,6 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
       }
     }
 
-    //hiprtAABBListPrimitive motion_trinagle_aabb;
     bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
     bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
     bvh->custom_primitive_bound.copy_to_device();
@@ -657,9 +655,6 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 {
 
   hiprtGeometryBuildInput geomInput;
-
-  //hiprtAABBListPrimitive point_aabb;
-  //vector<BoundBox> point_bound;
 
 
   const Attribute *point_attr_mP = NULL;
@@ -830,8 +825,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   hiprtBuildOperation build_operation = refit ? hiprtBuildOperationUpdate :
                                                 hiprtBuildOperationBuild;
 
-
-  vector<hiprtFrameSRT> transforms;
   array<hiprtFrameMatrix> transform_matrix;
 
   unordered_map<Geometry *, int2> prim_info_map;

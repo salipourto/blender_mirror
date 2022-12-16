@@ -41,6 +41,7 @@ vector<DeviceInfo> Device::cpu_devices;
 vector<DeviceInfo> Device::hip_devices;
 vector<DeviceInfo> Device::metal_devices;
 vector<DeviceInfo> Device::oneapi_devices;
+vector<DeviceInfo> Device::hiprt_devices;
 uint Device::devices_initialized_mask = 0;
 
 /* Device */
@@ -94,13 +95,6 @@ Device *Device::create(const DeviceInfo &info, Stats &stats, Profiler &profiler)
     case DEVICE_HIP:
       if (device_hip_init())
         device = device_hip_create(info, stats, profiler);
-      break;
-#endif
-
-#ifdef WITH_HIPRT
-    case DEVICE_HIPRT:
-      if (device_hip_init())
-        device = device_hiprt_create(info, stats, profiler);
       break;
 #endif
 
@@ -235,33 +229,22 @@ vector<DeviceInfo> Device::available_devices(uint mask)
   }
 #endif
 
-#ifdef WITH_HIP
-  if (mask & DEVICE_MASK_HIP) {
+#if defined(WITH_HIP) || defined(WITH_HIPRT)
+  if (mask & (DEVICE_MASK_HIP | DEVICE_MASK_HIPRT)) {
     if (!(devices_initialized_mask & DEVICE_MASK_HIP)) {
       if (device_hip_init()) {
         device_hip_info(hip_devices);
       }
       devices_initialized_mask |= DEVICE_MASK_HIP;
     }
-    foreach (DeviceInfo &info, hip_devices) {
-      devices.push_back(info);
+    if (mask & DEVICE_MASK_HIP) {
+      foreach (DeviceInfo &info, hip_devices) {
+        devices.push_back(info);
+      }
     }
   }
 #endif
 
-#ifdef WITH_HIPRT
-  if (mask & DEVICE_MASK_HIPRT) {
-    if (!(devices_initialized_mask & DEVICE_MASK_HIPRT)) {
-      if (device_hip_init()) {
-        device_hiprt_info(hip_devices);
-      }
-      devices_initialized_mask |= DEVICE_MASK_HIPRT;
-    }
-    foreach (DeviceInfo &info, hip_devices) {
-      devices.push_back(info);
-    }
-  }
-#endif
 
 #ifdef WITH_ONEAPI
   if (mask & DEVICE_MASK_ONEAPI) {
@@ -393,6 +376,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo> &subdevices,
   info.has_profiling = true;
   info.has_peer_memory = false;
   info.use_metalrt = false;
+  info.use_hiprt = false;
   info.denoisers = DENOISER_ALL;
 
   foreach (const DeviceInfo &device, subdevices) {
@@ -441,6 +425,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo> &subdevices,
     info.has_profiling &= device.has_profiling;
     info.has_peer_memory |= device.has_peer_memory;
     info.use_metalrt |= device.use_metalrt;
+    info.use_hiprt |= device.use_hiprt;
     info.denoisers &= device.denoisers;
   }
 
@@ -461,6 +446,7 @@ void Device::free_memory()
   oneapi_devices.free_memory();
   cpu_devices.free_memory();
   metal_devices.free_memory();
+  hiprt_devices.free_memory();
 }
 
 unique_ptr<DeviceQueue> Device::gpu_queue_create()

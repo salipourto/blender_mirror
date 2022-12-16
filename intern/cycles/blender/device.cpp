@@ -16,7 +16,6 @@ enum ComputeDevice {
   COMPUTE_DEVICE_HIP = 4,
   COMPUTE_DEVICE_METAL = 5,
   COMPUTE_DEVICE_ONEAPI = 6,
-  COMPUTE_DEVICE_HIPRT = 7,
 
   COMPUTE_DEVICE_NUM
 };
@@ -75,9 +74,6 @@ DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scen
       else if (compute_device == COMPUTE_DEVICE_HIP) {
         mask |= DEVICE_MASK_HIP;
       }
-      else if (compute_device == COMPUTE_DEVICE_HIPRT) {
-        mask |= DEVICE_MASK_HIPRT;
-      }
       else if (compute_device == COMPUTE_DEVICE_METAL) {
         mask |= DEVICE_MASK_METAL;
       }
@@ -115,6 +111,10 @@ DeviceInfo blender_device_info(BL::Preferences &b_preferences, BL::Scene &b_scen
 
   if (get_boolean(cpreferences, "use_metalrt")) {
     device.use_metalrt = true;
+  }
+
+  if (get_boolean(cpreferences, "use_hiprt")) {
+    device.use_hiprt = true;
   }
 
   return device;

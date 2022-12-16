@@ -73,6 +73,7 @@ class DeviceInfo {
   bool has_peer_memory;       /* GPU has P2P access to memory of another GPU. */
   bool has_gpu_queue;         /* Device supports GPU queue. */
   bool use_metalrt;           /* Use MetalRT to accelerate ray queries (Metal only). */
+  bool use_hiprt;             /* Use HIPRT to enable AMD hardware ray tracing*/
   DenoiserTypeMask denoisers; /* Supported denoiser types. */
   int cpu_threads;
   vector<DeviceInfo> multi_devices;
@@ -285,6 +286,7 @@ class Device {
   static vector<DeviceInfo> hip_devices;
   static vector<DeviceInfo> metal_devices;
   static vector<DeviceInfo> oneapi_devices;
+  static vector<DeviceInfo> hiprt_devices;
   static uint devices_initialized_mask;
 };
 

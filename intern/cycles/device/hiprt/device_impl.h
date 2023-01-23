@@ -8,18 +8,8 @@
 #  include "device/hip/device_impl.h"
 #  include "device/hip/kernel.h"
 #  include "device/hip/queue.h"
-#  include "device/hip/util.h"
 #  include "device/hiprt/queue.h"
-
-#  include "hiprt.h"
-
-#  define HIPRT_INTERSECTION_FILTERS
-//#  define KERNEL_TIME
-
-#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
-#  define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread
-#  define HIPRT_THREAD_STACK_SIZE 64  // global stack allocation per thread
-#  define HIPRT_THREAD_GROUP_SIZE 256 // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
+# include "device/hiprt/rtc_util.h"
 
 
 CCL_NAMESPACE_BEGIN
@@ -62,21 +52,6 @@ class HIPRTDevice : public HIPDevice {
     return hiprt_context;
   }
 
-  enum Filter_Function {
-    Opaque = 0,
-    Shadows,
-    SSR,
-    Volume,
-    Max_Intersect_Filter_Function
-  };
-
-  enum Primitive_Type {
-    Triangle = 0,
-    Curve,
-    Motion_Triangle,
-    Point,
-    Max_Primitive_Type
-  };
 
   bool use_lds;
 
@@ -115,7 +90,6 @@ class HIPRTDevice : public HIPDevice {
   hiprtFuncTable functions_table;
 
 };
-
 CCL_NAMESPACE_END
 
 #endif

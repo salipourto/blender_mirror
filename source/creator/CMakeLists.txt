@@ -89,7 +89,7 @@ if(WITH_SDL)
 endif()
 
 if(WITH_CYCLES_DEVICE_HIPRT)
-  link_directories(../../extern/hiprt)
+  #link_directories(../../extern/hiprt)
   add_definitions(-DWITH_HIPRT)
 endif()
 
@@ -1071,7 +1071,7 @@ elseif(WIN32)
       DESTINATION ${TARGETDIR_LIB}
     )
   endif()
-
+  #[===[
     if(WITH_CYCLES_DEVICE_HIPRT)
     install(
       FILES
@@ -1082,6 +1082,7 @@ elseif(WIN32)
       DESTINATION ${TARGETDIR_LIB}
     )
   endif()
+  ]===]
 
   if(WITH_BLENDER_THUMBNAILER)
     install(
@@ -1313,7 +1314,8 @@ target_link_libraries(blender ${LIB})
 unset(LIB)
 
 if(WITH_CYCLES_DEVICE_HIPRT)
-  target_link_libraries(blender hiprt64.lib)
+  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
+  target_link_libraries(blender ${HIPRTSDK}/hiprt64.lib)
 endif()
 
 setup_platform_linker_flags(blender)

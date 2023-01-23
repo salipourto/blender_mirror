@@ -36,7 +36,6 @@ endif()
 
 if(WITH_CYCLES_DEVICE_HIPRT)
   list(APPEND INC
-  #../../../extern/hiprt
     ../../../extern/hipew/include
       )
   add_definitions(-DWITH_HIPRT)

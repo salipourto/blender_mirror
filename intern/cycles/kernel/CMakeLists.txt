@@ -1054,3 +1054,20 @@ if(WITH_NANOVDB)
   delayed_install(${NANOVDB_INCLUDE_DIR} "${SRC_NANOVDB_HEADERS}" ${CYCLES_INSTALL_PATH}/source/nanovdb)
   delayed_install(${NANOVDB_INCLUDE_DIR} "${SRC_NANOVDB_UTIL_HEADERS}" ${CYCLES_INSTALL_PATH}/source/nanovdb/util)
 endif()
+
+
+if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
+add_subdirectory(device/hiprt)
+
+
+foreach(arch ${CYCLES_HIPRT_BINARIES_ARCH})
+    set(file_name "kernel_rt_")
+    set(format "fatbin")
+    set(hiprt_file ${file_name}${arch}.${format})
+    delayed_install("${CMAKE_BINARY_DIR}" "${hiprt_file}" ${CYCLES_INSTALL_PATH}/lib)
+endforeach()
+
+add_custom_target(cycles_kernel_hiprt ALL DEPENDS ${hiprt_file})
+cycles_set_solution_folder(cycles_kernel_hiprt)
+
+endif()

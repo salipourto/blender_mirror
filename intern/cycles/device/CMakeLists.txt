@@ -16,8 +16,9 @@ if(WITH_CYCLES_DEVICE_OPTIX OR WITH_CYCLES_DEVICE_CUDA)
 endif()
 
 if(WITH_CYCLES_DEVICE_HIPRT)
+  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
       list(APPEND INC
-       ../../../extern/hiprt
+       ${HIPRTSDK}
       )
       add_definitions(-DWITH_HIP)
       add_definitions(-DWITH_HIPRT)
@@ -79,6 +80,8 @@ set(SRC_HIPRT
   hiprt/device_impl.h
   hiprt/queue.cpp
   hiprt/queue.h
+  hiprt/rtc_util.cpp
+  hiprt/rtc_util.h
 )
 
 set(SRC_ONEAPI
@@ -173,6 +176,9 @@ if(WITH_CYCLES_DEVICE_HIP)
   add_definitions(-DWITH_HIP)
   if(WITH_CYCLES_DEVICE_HIPRT)
     add_definitions(-DWITH_HIPRT)
+  endif()
+  if(WITH_CYCLES_HIPRT_BINARIES)
+    add_definitions(-DHIPRT_BINARIES)
   endif()
 endif()
 

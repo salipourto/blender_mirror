@@ -27,9 +27,7 @@
 
 #  include "kernel/device/hiprt/globals.h"
 
-
 CCL_NAMESPACE_BEGIN
-
 
 class HIPRTDevice;
 
@@ -116,58 +114,14 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
 {
   if (!path_exists(fatbin_rt)) {
 
-    vector<const char *> function_names;
-    vector<string> function_names_str;
-
-    for (int i = 0; i < (int)DEVICE_KERNEL_NUM; i++) {
-
-      if (i == DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL) {
-        continue;
-      }
-
-      const string function_name = std::string("kernel_gpu_") +
-                                        device_kernel_as_string((DeviceKernel)i);
-
-      function_names_str.push_back(function_name);
-    }
-
-    for (int i = 0; i < function_names_str.size(); i++) {
-
-      function_names.push_back(function_names_str[i].c_str());
-    }
+    std::vector<const char *> function_names;
+    std::vector<std::string> function_name_str;
+    hiprt_rtc_helper::get_kernel_names(function_name_str, function_names);
 
 
-    vector<const char *> rtc_options;
-
-    const string block_size_str = to_string(HIPRT_THREAD_GROUP_SIZE);
-    const string stack_size_str = to_string(HIPRT_SHARED_STACK_SIZE);
-    const string global_stack_size_thread = to_string(HIPRT_THREAD_STACK_SIZE);
-    const string global_stack_size = to_string(HIPRT_GLOBAL_STACK_SIZE);
-
-    string block_size_def = "-D HIPRT_THREAD_GROUP_SIZE=" + block_size_str;
-    string stack_size_def = "-D HIPRT_SHARED_STACK_SIZE=" + stack_size_str;
-    string global_stack_size_thread_def = "-D HIPRT_THREAD_STACK_SIZE=" + global_stack_size_thread;
-    string global_stack_size_def = "-D HIPRT_GLOBAL_STACK_SIZE=" + global_stack_size;
-
-if (use_lds) {
-
-      rtc_options.push_back(block_size_def.c_str());
-      rtc_options.push_back(stack_size_def.c_str());
-      rtc_options.push_back(global_stack_size_thread_def.c_str());
-      rtc_options.push_back(global_stack_size_def.c_str());
-
-      rtc_options.push_back("-DHIPRT_SHARED_STACK");
-
-    }
-
-    rtc_options.push_back("-D __HIPRT__");
-    rtc_options.push_back("-nostdinc");
-    rtc_options.push_back("-ffast-math");
-    rtc_options.push_back("-mno-cumode");
-
- #  ifdef HIPRT_INTERSECTION_FILTERS
-    rtc_options.push_back("-DHIPRT_INTERSECTION_FILTERS ");
-#  endif
+    std::vector<const char *> rtc_options;
+    hiprt_rtc_helper::shared_stack_property stack_proeprty;
+    hiprt_rtc_helper::get_compiler_options(rtc_options, stack_proeprty, use_lds);
 
     string include_option = "-I" + include_path;
     rtc_options.push_back(include_option.c_str());
@@ -188,8 +142,8 @@ if (use_lds) {
                                           0,
                                           rtc_options.size(),
                                           rtc_options.data(),
-                                          Max_Primitive_Type,
-                                          Max_Intersect_Filter_Function,
+                                          hiprt_rtc_helper::Max_Primitive_Type,
+                                          hiprt_rtc_helper::Max_Intersect_Filter_Function,
                                           func_name_set,
                                           &intersection);
 
@@ -210,47 +164,22 @@ if (use_lds) {
 
 bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 {
-  const char *filter_functions[] = {
-      "opaque_intersection_filter",
-      "shadow_intersection_filter",
-      "local_intersection_filter",
-      "volume_intersection_filter",
-  };
 
-  const char *intersect_function[] = {
-      "none", "curve_custom_intersect", "motion_triangle_custom_intersect", "point_custom_intersect"};
-  //"motion_triangle_custom_local_intersect", "motion_triangle_custom_volume_intersect"
-
-  for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
-       filter_function++) {
-    for (int prim = 0; prim < Max_Primitive_Type; prim++) {
-      int table_index = prim + filter_function * Max_Intersect_Filter_Function;
-      if (prim != Triangle && filter_function != Opaque) {
-        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
-        func_name_set[table_index].intersectFuncName = intersect_function[prim];
-      }
-      else if (prim == Triangle)
-          //triangle primitives dont need a custom intersection function
-        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
-      else
-          //custom primitives for scene_intersect don't need a filter function because the custom intersection
-          //function can handle whatever filter function plans to achieve
-        func_name_set[table_index].intersectFuncName = intersect_function[prim];
-    }
-  }
+  hiprt_rtc_helper::get_custom_function_names(func_name_set);
 
   hiprtFuncDataSet func_data_set;
-  hiprtError result = hiprtCreateFuncTable(
-      hiprt_context, Max_Primitive_Type, Max_Intersect_Filter_Function, &functions_table);
+  hiprtError result = hiprtCreateFuncTable(hiprt_context,
+                                           hiprt_rtc_helper::Max_Primitive_Type,
+                                           hiprt_rtc_helper::Max_Intersect_Filter_Function,
+                                           &functions_table);
   if (result == 0)
     result = hiprtSetFuncTable(hiprt_context,
                                functions_table,
-                               Max_Primitive_Type,
-                               Max_Intersect_Filter_Function,
+                               hiprt_rtc_helper::Max_Primitive_Type,
+                               hiprt_rtc_helper::Max_Intersect_Filter_Function,
                                func_data_set);
 
   return (result == hiprtSuccess);
-
 }
 
 string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name, const char *base)
@@ -267,7 +196,8 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
     arch = props.gcnArchName;
   }
 
-  hiprtFuncNameSet func_name_sets[Max_Primitive_Type * Max_Intersect_Filter_Function];
+  hiprtFuncNameSet func_name_sets[hiprt_rtc_helper::Max_Primitive_Type *
+                                  hiprt_rtc_helper::Max_Intersect_Filter_Function];
 
   if (!set_function_table(func_name_sets))
     return string();
@@ -356,7 +286,7 @@ bool HIPRTDevice::load_kernels(const uint kernel_features)
   }
 
   /* get kernel */
-  const char *kernel_name = "kernel";
+  const char *kernel_name = "kernel_rt";
   string fatbin = compile_kernel(kernel_features, kernel_name);
   if (fatbin.empty())
     return false;
@@ -442,7 +372,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 {
 
   hiprtGeometryBuildInput geomInput;
-  geomInput.geomType = Triangle;
+  geomInput.geomType = hiprt_rtc_helper::Triangle;
 
   if (mesh->has_motion_blur() &&
       !(bvh->params.num_motion_triangle_steps == 0 || bvh->params.use_spatial_split)) {
@@ -503,7 +433,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 
     geomInput.type = hiprtPrimitiveTypeAABBList;
     geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-    geomInput.geomType = Motion_Triangle;
+    geomInput.geomType = hiprt_rtc_helper::Motion_Triangle;
   }
   else {
 
@@ -646,7 +576,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-  geomInput.geomType = Curve;
+  geomInput.geomType = hiprt_rtc_helper::Curve;
 
   return geomInput;
 }
@@ -750,7 +680,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-  geomInput.geomType = Point;
+  geomInput.geomType = hiprt_rtc_helper::Point;
 
   return geomInput;
 }
@@ -1049,7 +979,8 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                             "__table_volume_intersect"};
 
 
-    for (int table_index = 0; table_index < Max_Intersect_Filter_Function; table_index++) {
+    for (int table_index = 0; table_index < hiprt_rtc_helper::Max_Intersect_Filter_Function;
+         table_index++) {
 
       size_t table_ptr_size = 0;
       device_ptr table_device_ptr;
@@ -1067,9 +998,7 @@ void HIPRTDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
   progress.set_substatus("Building HIPRT acceleration structure");
 
   hiprtBuildOptions options;
-  options.buildFlags =  hiprtBuildFlagBitPreferHighQualityBuild;
-     //hiprtBuildFlagBitPreferBalancedBuild;
-
+  options.buildFlags = hiprtBuildFlagBitPreferHighQualityBuild;
 
   BVHHIPRT *bvh_rt = static_cast<BVHHIPRT *>(bvh);
 

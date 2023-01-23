@@ -1071,18 +1071,21 @@ elseif(WIN32)
       DESTINATION ${TARGETDIR_LIB}
     )
   endif()
-  #[===[
-    if(WITH_CYCLES_DEVICE_HIPRT)
-    install(
-      FILES
-      ../../extern/hiprt/hiprt64.dll
-      ../../extern/hiprt/hiprtc0503.dll
-      ../../extern/hiprt/hiprtc-builtins0503.dll
-      ../../extern/hiprt/amd_comgr0503.dll
-      DESTINATION ${TARGETDIR_LIB}
-    )
+
+  if(WITH_CYCLES_DEVICE_HIPRT)
+  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
+  target_link_libraries(blender ${HIPRTSDK}/hiprt64.lib)
+    if(NOT WITH_CYCLES_HIPRT_BINARIES)
+      install(
+        FILES
+        ${HIPRTSDK}/hiprt64.dll
+        ${HIPRTSDK}/hiprtc0503.dll
+        ${HIPRTSDK}hiprtc-builtins0503.dll
+        ${HIPRTSDK}/amd_comgr0503.dll
+        DESTINATION ${TARGETDIR_LIB}
+      )
+    endif()
   endif()
-  ]===]
 
   if(WITH_BLENDER_THUMBNAILER)
     install(
@@ -1093,7 +1096,7 @@ elseif(WIN32)
 
   if(WITH_DRACO)
     install(
-      PROGRAMS $<TARGET_FILE:extern_draco>
+      PROGRAMS $<TARGET_FILE:extern_draco> 
       DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
     )
   endif()
@@ -1312,11 +1315,6 @@ install(
 add_dependencies(blender makesdna)
 target_link_libraries(blender ${LIB})
 unset(LIB)
-
-if(WITH_CYCLES_DEVICE_HIPRT)
-  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
-  target_link_libraries(blender ${HIPRTSDK}/hiprt64.lib)
-endif()
 
 setup_platform_linker_flags(blender)
 setup_platform_linker_libs(blender)

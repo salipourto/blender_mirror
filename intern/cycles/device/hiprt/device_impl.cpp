@@ -282,7 +282,7 @@ bool HIPRTDevice::load_kernels(const uint kernel_features)
   }
 
   /* get kernel */
-  const char *kernel_name = "kernel_rt";
+  const char *kernel_name = "kernel";
   string fatbin = compile_kernel(kernel_features, kernel_name);
   if (fatbin.empty())
     return false;

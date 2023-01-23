@@ -6,7 +6,6 @@
 #include "hiprt.h"
 
 #define HIPRT_INTERSECTION_FILTERS
-//#  define KERNEL_TIME
 
 #define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
 #define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread

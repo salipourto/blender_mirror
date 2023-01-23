@@ -65,11 +65,11 @@ ccl_device_inline float4 make_float4(float x, float y, float z, float w)
 #if !defined(__HIPCC_RTC__)
 ccl_device_inline float4 make_float4(float f)
 {
-#ifdef __KERNEL_SSE__
+#  ifdef __KERNEL_SSE__
   return float4(_mm_set1_ps(f));
-#else
+#  else
   return make_float4(f, f, f, f);
-#endif
+#  endif
 }
 #endif
 

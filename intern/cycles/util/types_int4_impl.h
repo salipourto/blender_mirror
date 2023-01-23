@@ -69,11 +69,11 @@ ccl_device_inline int4 make_int4(int x, int y, int z, int w)
 #if !defined(__HIPCC_RTC__)
 ccl_device_inline int4 make_int4(int i)
 {
-#ifdef __KERNEL_SSE__
+#  ifdef __KERNEL_SSE__
   return int4(_mm_set1_epi32(i));
-#else
+#  else
   return make_int4(i, i, i, i);
-#endif
+#  endif
 }
 #endif
 ccl_device_inline int4 make_int4(const float3 f)

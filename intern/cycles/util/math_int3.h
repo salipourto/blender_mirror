@@ -61,25 +61,25 @@ ccl_device_inline bool operator<(const int3 a, const int3 b)
 {
   return a.x < b.x && a.y < b.y && a.z < b.z;
 }
-#if !defined(__HIPCC_RTC__)
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline int3 operator+(const int3 a, const int3 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return int3(_mm_add_epi32(a.m128, b.m128));
-#  else
+#    else
   return make_int3(a.x + b.x, a.y + b.y, a.z + b.z);
-#  endif
+#    endif
 }
 
 ccl_device_inline int3 operator-(const int3 a, const int3 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return int3(_mm_sub_epi32(a.m128, b.m128));
-#  else
+#    else
   return make_int3(a.x - b.x, a.y - b.y, a.z - b.z);
-#  endif
+#    endif
 }
-#endif
+#  endif
 #endif /* !__KERNEL_METAL__ */
 
 CCL_NAMESPACE_END

@@ -62,7 +62,7 @@ __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtFuncTable __table_local_intersect;
 __attribute__((used)) __attribute__((constant)) __attribute__((device))
 hiprtFuncTable __table_volume_intersect;
-#endif
+#  endif
 #endif
 
 /* Abstraction macros */

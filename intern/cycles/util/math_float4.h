@@ -36,33 +36,33 @@ ccl_device_inline int4 cast(const float4 a)
 }
 
 #if !defined(__KERNEL_METAL__)
-#if !defined(__HIPCC_RTC__)
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline float4 operator-(const float4 &a)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   __m128 mask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
   return float4(_mm_xor_ps(a.m128, mask));
-#  else
+#    else
   return make_float4(-a.x, -a.y, -a.z, -a.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator*(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return float4(_mm_mul_ps(a.m128, b.m128));
-#  else
+#    else
   return make_float4(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator*(const float4 a, float f)
 {
-#  if defined(__KERNEL_SSE__)
+#    if defined(__KERNEL_SSE__)
   return a * make_float4(f);
-#  else
+#    else
   return make_float4(a.x * f, a.y * f, a.z * f, a.w * f);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator*(float f, const float4 a)
@@ -77,20 +77,20 @@ ccl_device_inline float4 operator/(const float4 a, float f)
 
 ccl_device_inline float4 operator/(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return float4(_mm_div_ps(a.m128, b.m128));
-#  else
+#    else
   return make_float4(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator+(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return float4(_mm_add_ps(a.m128, b.m128));
-#  else
+#    else
   return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator+(const float4 a, const float f)
@@ -100,11 +100,11 @@ ccl_device_inline float4 operator+(const float4 a, const float f)
 
 ccl_device_inline float4 operator-(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return float4(_mm_sub_ps(a.m128, b.m128));
-#  else
+#    else
   return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline float4 operator-(const float4 a, const float f)
@@ -139,40 +139,40 @@ ccl_device_inline float4 operator/=(float4 &a, float f)
 
 ccl_device_inline int4 operator<(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return int4(_mm_castps_si128(_mm_cmplt_ps(a.m128, b.m128)));
-#  else
+#    else
   return make_int4(a.x < b.x, a.y < b.y, a.z < b.z, a.w < b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline int4 operator>=(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return int4(_mm_castps_si128(_mm_cmpge_ps(a.m128, b.m128)));
-#  else
+#    else
   return make_int4(a.x >= b.x, a.y >= b.y, a.z >= b.z, a.w >= b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline int4 operator<=(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return int4(_mm_castps_si128(_mm_cmple_ps(a.m128, b.m128)));
-#  else
+#    else
   return make_int4(a.x <= b.x, a.y <= b.y, a.z <= b.z, a.w <= b.w);
-#  endif
+#    endif
 }
 
 ccl_device_inline bool operator==(const float4 a, const float4 b)
 {
-#  ifdef __KERNEL_SSE__
+#    ifdef __KERNEL_SSE__
   return (_mm_movemask_ps(_mm_cmpeq_ps(a.m128, b.m128)) & 15) == 15;
-#  else
+#    else
   return (a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w);
-#  endif
+#    endif
 }
-#endif //HIPRTC
+#  endif  // HIPRTC
 ccl_device_inline const float4 operator^(const float4 a, const float4 b)
 {
 #  ifdef __KERNEL_SSE__

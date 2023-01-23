@@ -38,7 +38,6 @@ BVHHIPRT::~BVHHIPRT()
   triangle_index.free();
   vertex_data.free();
   hiprtDestroyGeometry(hiprt_context, hiprt_geom);
-
 }
 
 CCL_NAMESPACE_END

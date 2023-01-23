@@ -71,13 +71,13 @@ ccl_device_inline int3 make_int3(int x, int y, int z)
 #if !defined(__HIPCC_RTC__)
 ccl_device_inline int3 make_int3(int i)
 {
-#if defined(__KERNEL_GPU__)
+#  if defined(__KERNEL_GPU__)
   return make_int3(i, i, i);
-#elif defined(__KERNEL_SSE__)
+#  elif defined(__KERNEL_SSE__)
   return int3(_mm_set1_epi32(i));
-#else
+#  else
   return {i, i, i, i};
-#endif
+#  endif
 }
 #endif
 

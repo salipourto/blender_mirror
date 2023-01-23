@@ -71,13 +71,13 @@ ccl_device_inline float3 make_float3(float x, float y, float z)
 #if !defined(__HIPCC_RTC__)
 ccl_device_inline float3 make_float3(float f)
 {
-#if defined(__KERNEL_GPU__)
+#  if defined(__KERNEL_GPU__)
   return make_float3(f, f, f);
-#elif defined(__KERNEL_SSE__)
+#  elif defined(__KERNEL_SSE__)
   return float3(_mm_set1_ps(f));
-#else
+#  else
   return {f, f, f, f};
-#endif
+#  endif
 }
 #endif
 ccl_device_inline void print_float3(ccl_private const char *label, const float3 a)

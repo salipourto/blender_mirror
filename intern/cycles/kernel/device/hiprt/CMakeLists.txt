@@ -2,7 +2,7 @@
 
 
 
-include(CMakePrintHelpers)
+#include(CMakePrintHelpers)
 
 set(SRC_KERNEL
       ${CMAKE_SOURCE_DIR}/intern/cycles/kernel/device/hiprt/kernel.cpp
@@ -75,4 +75,3 @@ add_custom_command(
     TARGET hiprtc_shader_cache POST_BUILD DEPENDS ${hiprt_sources}
     COMMAND hiprtc_shader_cache --source_path ${SRC_KERNEL} --include_path ${INCLUDE_PATH} --nano_include ${NANO_INCLUDE_PATH}  --output_path ${CMAKE_BINARY_DIR}
 )
-

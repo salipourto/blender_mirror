@@ -154,7 +154,8 @@ bool Geometry::need_build_bvh(BVHLayout layout) const
 {
   return is_instanced() || layout == BVH_LAYOUT_OPTIX || layout == BVH_LAYOUT_MULTI_OPTIX ||
          layout == BVH_LAYOUT_METAL || layout == BVH_LAYOUT_MULTI_OPTIX_EMBREE ||
-         layout == BVH_LAYOUT_MULTI_METAL || layout == BVH_LAYOUT_MULTI_METAL_EMBREE || layout == BVH_LAYOUT_HIPRT;
+         layout == BVH_LAYOUT_MULTI_METAL || layout == BVH_LAYOUT_MULTI_METAL_EMBREE ||
+         layout == BVH_LAYOUT_HIPRT;
 }
 
 bool Geometry::is_instanced() const

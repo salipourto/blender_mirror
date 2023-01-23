@@ -9,8 +9,7 @@
 #  include "device/hip/kernel.h"
 #  include "device/hip/queue.h"
 #  include "device/hiprt/queue.h"
-# include "device/hiprt/rtc_util.h"
-
+#  include "device/hiprt/rtc_util.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -26,7 +25,6 @@ void get_hiprt_transform(float matrix[][4], Transform &tfm);
 class HIPRTDevice : public HIPDevice {
 
  public:
-
   virtual BVHLayoutMask get_bvh_layout_mask() const override;
 
   HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler);
@@ -34,15 +32,16 @@ class HIPRTDevice : public HIPDevice {
   virtual ~HIPRTDevice();
   virtual unique_ptr<DeviceQueue> gpu_queue_create() override;
   string compile_kernel_get_common_cflags(const uint kernel_features);
-  virtual string compile_kernel(const uint kernel_features, const char *name, const char *base = "hiprt") override;
+  virtual string compile_kernel(const uint kernel_features,
+                                const char *name,
+                                const char *base = "hiprt") override;
 
   virtual bool load_kernels(const uint kernel_features) override;
 
   virtual void const_copy_to(const char *name, void *host, size_t size) override;
 
-
   virtual void build_bvh(BVH *bvh, Progress &progress, bool refit) override;
-  
+
   hiprtGeometryBuildInput prepare_triangle_blas(BVHHIPRT *bvh, Mesh *mesh);
   hiprtGeometryBuildInput prepare_curve_blas(BVHHIPRT *bvh, Hair *hair);
   hiprtGeometryBuildInput prepare_point_blas(BVHHIPRT *bvh, PointCloud *pointcloud);
@@ -52,17 +51,15 @@ class HIPRTDevice : public HIPDevice {
     return hiprt_context;
   }
 
-
   bool use_lds;
 
  protected:
- 
- bool compile_RT_kernel(const string fatbin_rt,
+  bool compile_RT_kernel(const string fatbin_rt,
                          const string include_path,
                          const string source_path,
                          hiprtFuncNameSet *func_name_set);
 
- bool set_function_table(hiprtFuncNameSet *func_name_set);
+  bool set_function_table(hiprtFuncNameSet *func_name_set);
 
   hiprtGeometry build_blas(BVHHIPRT *bvh, Geometry *geom, hiprtBuildOptions options);
   hiprtScene build_tlas(BVHHIPRT *bvh,
@@ -88,9 +85,7 @@ class HIPRTDevice : public HIPDevice {
   hiprtContext hiprt_context;
   hiprtScene scene;
   hiprtFuncTable functions_table;
-
 };
 CCL_NAMESPACE_END
 
 #endif
-

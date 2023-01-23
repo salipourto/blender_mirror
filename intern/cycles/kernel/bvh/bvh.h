@@ -18,11 +18,10 @@
 #elif defined(__KERNEL_OPTIX__)
 #  include "kernel/device/optix/bvh.h"
 #elif defined(__HIPRT__)
-#	include "kernel/device/hiprt/bvh.h"
+#  include "kernel/device/hiprt/bvh.h"
 #else
 #  define __BVH2__
 #endif
-
 
 CCL_NAMESPACE_BEGIN
 

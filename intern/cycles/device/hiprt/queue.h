@@ -12,7 +12,6 @@
 #  include "device/hip/queue.h"
 #  include "device/hip/util.h"
 
-
 CCL_NAMESPACE_BEGIN
 
 class HIPRTDevice;
@@ -27,14 +26,10 @@ class HIPRTDeviceQueue : public HIPDeviceQueue {
                        const int work_size,
                        DeviceKernelArguments const &args) override;
 
-
  protected:
   HIPRTDevice *hiprt_device_;
-
-
 };
 
 CCL_NAMESPACE_END
 
 #endif /* WITH_HIPRT */
-

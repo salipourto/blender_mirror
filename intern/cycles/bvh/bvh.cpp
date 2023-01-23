@@ -6,10 +6,10 @@
 
 #include "bvh/bvh2.h"
 #include "bvh/embree.h"
+#include "bvh/hiprt.h"
 #include "bvh/metal.h"
 #include "bvh/multi.h"
 #include "bvh/optix.h"
-#include "bvh/hiprt.h"
 
 #include "util/log.h"
 #include "util/progress.h"
@@ -106,7 +106,7 @@ BVH *BVH::create(const BVHParams &params,
       break;
 #endif
 #ifdef WITH_HIPRT
-      case BVH_LAYOUT_HIPRT:
+    case BVH_LAYOUT_HIPRT:
       return new BVHHIPRT(params, geometry, objects, device);
 #else
       (void)device;

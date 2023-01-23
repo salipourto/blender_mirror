@@ -31,7 +31,6 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
 
   hiprtRay ray_hip;
 
-  
   SET_HIPRT_RAY(ray_hip, ray)
 
   RayPayload payload;
@@ -202,7 +201,7 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals kg,
   }
 
   hiprtRay ray_hip;
-  
+
   SET_HIPRT_RAY(ray_hip, ray)
   ShadowPayload payload;
   payload.kg = kg;
@@ -220,8 +219,7 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals kg,
   hiprtHit hit = traversal.getNextHit();
   num_recorded_hits = payload.r_num_recorded_hits;
   throughput = payload.r_throughput;
-  return hit.hasHit();  
-
+  return hit.hasHit();
 }
 #endif /* __SHADOW_RECORD_ALL__ */
 
@@ -244,7 +242,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   }
 
   hiprtRay ray_hip;
-  
+
   SET_HIPRT_RAY(ray_hip, ray)
 
   RayPayload payload;
@@ -257,7 +255,8 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   GET_TRAVERSAL_STACK()
 
 #  ifndef HIPRT_INTERSECTION_FILTERS
-  GET_TRAVERSAL_ANY_HIT(__table_volume_intersect, 3)  // no custom intersection for volume rendering
+  GET_TRAVERSAL_ANY_HIT(__table_volume_intersect,
+                        3)  // no custom intersection for volume rendering
   hiprtHit hit = traversal_simple.getNextHit();
 
   bool b_hit = false;
@@ -284,7 +283,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
 #  else  // HIPRT_CUSTOM_FUNC
   GET_TRAVERSAL_CLOSEST_HIT(__table_volume_intersect, 3)
   hiprtHit hit = traversal.getNextHit();
-  //return hit.hasHit();
+  // return hit.hasHit();
   if (hit.hasHit()) {
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
@@ -293,10 +292,9 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
     return true;
   }
   else
-	  return false;
+    return false;
 #  endif
 }
 #endif /* __VOLUME__ */
 
 CCL_NAMESPACE_END
-

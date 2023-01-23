@@ -1142,7 +1142,8 @@ typedef enum KernelBVHLayout {
 
   /* Default BVH layout to use for CPU. */
   BVH_LAYOUT_AUTO = BVH_LAYOUT_EMBREE,
-  BVH_LAYOUT_ALL = BVH_LAYOUT_BVH2 | BVH_LAYOUT_EMBREE | BVH_LAYOUT_OPTIX | BVH_LAYOUT_METAL | BVH_LAYOUT_HIPRT,
+  BVH_LAYOUT_ALL = BVH_LAYOUT_BVH2 | BVH_LAYOUT_EMBREE | BVH_LAYOUT_OPTIX | BVH_LAYOUT_METAL |
+                   BVH_LAYOUT_HIPRT,
 } KernelBVHLayout;
 
 /* Specialized struct that can become constants in dynamic compilation. */
@@ -1196,7 +1197,7 @@ typedef struct KernelData {
   OptixTraversableHandle device_bvh;
 #elif defined __METALRT__
   metalrt_as_type device_bvh;
-#elif defined (__HIPRT__)
+#elif defined(__HIPRT__)
   void *device_bvh;
 #else
 #  ifdef __EMBREE__

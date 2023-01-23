@@ -14,8 +14,8 @@
 #endif
 
 #ifdef __HIP__
-#if !defined(__HIPCC_RTC__)
-#  include <hip/hip_vector_types.h>
+#  if !defined(__HIPCC_RTC__)
+#    include <hip/hip_vector_types.h>
 #  endif
 #endif
 

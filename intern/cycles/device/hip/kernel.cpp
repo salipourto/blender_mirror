@@ -5,7 +5,7 @@
 
 #  include "device/hip/kernel.h"
 #  include "device/hip/device_impl.h"
-#  include "device/hiprt/device_impl.h"
+//#  include "device/hiprt/device_impl.h"
 
 CCL_NAMESPACE_BEGIN
 

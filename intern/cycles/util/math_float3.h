@@ -33,7 +33,7 @@ ccl_device_inline float3 rcp(float3 a)
 }
 
 #else
-
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline float3 operator-(const float3 &a)
 {
 #  ifdef __KERNEL_SSE__
@@ -155,7 +155,7 @@ ccl_device_inline float3 operator/=(float3 &a, float f)
   float invf = 1.0f / f;
   return a = a * invf;
 }
-
+#  endif
 #  if !(defined(__KERNEL_METAL__) || defined(__KERNEL_CUDA__))
 ccl_device_inline packed_float3 operator*=(packed_float3 &a, const float3 b)
 {
@@ -269,7 +269,7 @@ ccl_device_inline float3 normalize(const float3 a)
   return a / len(a);
 #  endif
 }
-
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline float3 min(const float3 a, const float3 b)
 {
 #  ifdef __KERNEL_SSE__
@@ -287,7 +287,7 @@ ccl_device_inline float3 max(const float3 a, const float3 b)
   return make_float3(max(a.x, b.x), max(a.y, b.y), max(a.z, b.z));
 #  endif
 }
-
+#  endif
 ccl_device_inline float3 clamp(const float3 a, const float3 mn, const float3 mx)
 {
   return min(max(a, mn), mx);

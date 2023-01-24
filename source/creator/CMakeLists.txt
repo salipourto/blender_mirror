@@ -89,6 +89,10 @@ if(WITH_SDL)
   add_definitions(-DWITH_SDL)
 endif()
 
+if(WITH_CYCLES_DEVICE_HIPRT)
+  add_definitions(-DWITH_HIPRT)
+endif()
+
 if(WITH_BINRELOC)
   list(APPEND INC ${BINRELOC_INCLUDE_DIRS})
   add_definitions(-DWITH_BINRELOC)
@@ -1250,6 +1254,21 @@ elseif(WIN32)
         ${CMAKE_SOURCE_DIR}/release/windows/batch/oculus.json
       DESTINATION ${TARGETDIR_LIB}
     )
+  endif()
+
+  if(WITH_CYCLES_DEVICE_HIPRT)
+  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
+  target_link_libraries(blender ${HIPRTSDK}/hiprt64.lib)
+    if(NOT WITH_CYCLES_HIPRT_BINARIES)
+      install(
+        FILES
+        ${HIPRTSDK}/hiprt64.dll
+        ${HIPRTSDK}/hiprtc0503.dll
+        ${HIPRTSDK}/hiprtc-builtins0503.dll
+        ${HIPRTSDK}/amd_comgr0503.dll
+        DESTINATION ${TARGETDIR_LIB}
+      )
+    endif()
   endif()
 
   if(WITH_BLENDER_THUMBNAILER)

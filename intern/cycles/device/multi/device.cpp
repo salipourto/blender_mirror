@@ -158,7 +158,8 @@ class MultiDevice : public Device {
     assert(bvh->params.bvh_layout == BVH_LAYOUT_MULTI_OPTIX ||
            bvh->params.bvh_layout == BVH_LAYOUT_MULTI_METAL ||
            bvh->params.bvh_layout == BVH_LAYOUT_MULTI_OPTIX_EMBREE ||
-           bvh->params.bvh_layout == BVH_LAYOUT_MULTI_METAL_EMBREE);
+           bvh->params.bvh_layout == BVH_LAYOUT_MULTI_METAL_EMBREE ||
+           bvh->params.bvh_layout == BVH_LAYOUT_HIPRT);
 
     BVHMulti *const bvh_multi = static_cast<BVHMulti *>(bvh);
     bvh_multi->sub_bvhs.resize(devices.size());

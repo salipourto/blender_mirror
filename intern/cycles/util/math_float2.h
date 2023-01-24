@@ -21,6 +21,7 @@ ccl_device_inline float2 one_float2()
 }
 
 #if !defined(__KERNEL_METAL__)
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline float2 operator-(const float2 &a)
 {
   return make_float2(-a.x, -a.y);
@@ -112,7 +113,7 @@ ccl_device_inline bool operator!=(const float2 a, const float2 b)
 {
   return !(a == b);
 }
-
+#  endif  // HIPRTC
 ccl_device_inline bool is_zero(const float2 a)
 {
   return (a.x == 0.0f && a.y == 0.0f);
@@ -161,7 +162,7 @@ ccl_device_inline float2 safe_normalize(const float2 a)
   float t = len(a);
   return (t != 0.0f) ? a / t : a;
 }
-
+#  if !defined(__HIPCC_RTC__)
 ccl_device_inline float2 min(const float2 a, const float2 b)
 {
   return make_float2(min(a.x, b.x), min(a.y, b.y));
@@ -176,6 +177,7 @@ ccl_device_inline float2 clamp(const float2 a, const float2 mn, const float2 mx)
 {
   return min(max(a, mn), mx);
 }
+#  endif
 
 ccl_device_inline float2 fabs(const float2 a)
 {

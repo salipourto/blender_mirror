@@ -149,7 +149,9 @@ const char *device_kernel_as_string(DeviceKernel kernel)
     case DEVICE_KERNEL_NUM:
       break;
   };
+#ifndef HIPRT_BINARIES
   LOG(FATAL) << "Unhandled kernel " << static_cast<int>(kernel) << ", should never happen.";
+#endif
   return "UNKNOWN";
 }
 

@@ -249,7 +249,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   payload.self = ray->self;
   payload.kg = kg;
   payload.visibility = visibility;
-  payload.prim_type = PRIMITIVE_TRIANGLE;
+  payload.prim_type = PRIMITIVE_NONE;
   payload.ray_time = ray->time;
 
   GET_TRAVERSAL_STACK()
@@ -275,8 +275,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
         }
       }
     }
-    if (hiprtTraversalStateStackOverflow == traversal_simple.getCurrentState())
-      break;
+
     hit = traversal_simple.getNextHit();
   }
   return b_hit;

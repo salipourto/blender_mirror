@@ -104,13 +104,17 @@ int main(int argc, const char *argv[])
 
   int num_targets = sizeof(gpu_targets) / sizeof(char *);
   //add code to check whether recompile is needed
+
+  int gpu_opt_index = rtc_options.size();
+  rtc_options.resize(gpu_opt_index + 1);
+
   for (int i = 0; i < num_targets; i++) {
 
     hiprtcProgram intersection = 0;
     std::vector<char> intersection_binary;
 
-    std::string current_gpu_target = "--amdgpu-target=" + std::string(gpu_targets[i]);
-    // rtc_options.push_back(current_gpu_target.c_str());
+    std::string current_gpu_target = "--gpu-architecture=" + std::string(gpu_targets[i]);
+    rtc_options[gpu_opt_index] = current_gpu_target.c_str();
 
     const std::string output_name = out_path + "//" + "kernel_rt_" + std::string(gpu_targets[i]) +
                                     ".fatbin";
@@ -143,11 +147,8 @@ int main(int argc, const char *argv[])
       std::ofstream shader_binary;
       shader_binary.open(output_name.c_str(), std::ios::binary);
       shader_binary.write(intersection_binary.data(), binary_size);
+      shader_binary.close();
     }
-
-    std::ofstream shader_binary;
-    shader_binary.open(output_name.c_str(), std::ios::binary);
-    shader_binary.write(intersection_binary.data(), binary_size);
   }
 
   return 0;

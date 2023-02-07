@@ -485,19 +485,40 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
   }
 
   int num_bounds = 0;
+  float3 *curve_keys = hair->get_curve_keys().data();
 
   for (uint j = 0; j < num_curves; j++) {
     const Hair::Curve curve = hair->get_curve(j);
     const float *curve_radius = &hair->get_curve_radius()[0];
+    int first_key = curve.first_key;
     for (int k = 0; k < curve.num_keys - 1; k++) {
       if (curve_attr_mP == NULL || bvh->params.num_motion_curve_steps == 0) {
+        float3 current_keys[4];
+        current_keys[0] = curve_keys[max(first_key + k - 1, first_key)];
+        current_keys[1] = curve_keys[first_key + k];
+        current_keys[2] = curve_keys[first_key + k + 1];
+        current_keys[3] = curve_keys[min(first_key + k + 2, first_key + curve.num_keys - 1)];
+
+        if (current_keys[0].x == current_keys[1].x && current_keys[1].x == current_keys[2].x &&
+            current_keys[2].x == current_keys[3].x &&
+            current_keys[0].y == current_keys[1].y && current_keys[1].y == current_keys[2].y &&
+            current_keys[2].y == current_keys[3].y &&
+            current_keys[0].z == current_keys[1].z && current_keys[1].z == current_keys[2].z &&
+            current_keys[2].z == current_keys[3].z)
+          continue;
+
         BoundBox bounds = BoundBox::empty;
         curve.bounds_grow(k, &hair->get_curve_keys()[0], curve_radius, bounds);
         if (bounds.valid()) {
           int type = PRIMITIVE_PACK_SEGMENT(primitive_type, k);
           bvh->custom_prim_info[num_bounds].x = j;
           bvh->custom_prim_info[num_bounds].y = type;  // k;
-          bvh->custom_primitive_bound[num_bounds] = bounds;
+          /*if (P[0].x == 0 && P[0].y == 0 && P[0].z == 0 && P[1].x == 0 && P[1].y == 0 &&
+              P[1].z == 0 && P[2].x == 0 && P[2].y == 0 && P[2].z == 0 && P[3].x == 0 &&
+              P[3].y == 0 && P[3].z == 0)
+            bvh->custom_primitive_bound[num_bounds] = BoundBox::empty;
+          else*/
+            bvh->custom_primitive_bound[num_bounds] = bounds;
           num_bounds++;
         }
       }
@@ -559,7 +580,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
     }
   }
 
-  bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
+  bvh->custom_prim_aabb.aabbCount = num_bounds;  // bvh->custom_primitive_bound.size();
   bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
   bvh->custom_primitive_bound.copy_to_device();
   bvh->custom_prim_aabb.aabbs = (void *)bvh->custom_primitive_bound.device_pointer;

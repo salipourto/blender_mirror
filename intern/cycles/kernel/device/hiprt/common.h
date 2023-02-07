@@ -133,7 +133,8 @@ ccl_device_inline bool curve_custom_intersect(const hiprtRay &ray,
   // data_offset.y: the offset that has to be added to a local primitive to get the global
   // primitive id = kernel_data_fetch(object_prim_offset, object_id);
 
-  int prim_offset = kernel_data_fetch(object_prim_offset, object_id);  // data_offset.y;
+  int prim_offset = data_offset.y;
+  //kernel_data_fetch(object_prim_offset, object_id);  // data_offset.y;
 
   int curve_index = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
   int key_value = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).y;

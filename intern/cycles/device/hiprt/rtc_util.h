@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-#include "hiprt.h"
+#include "hiprt/hiprt.h"
 
 #define HIPRT_INTERSECTION_FILTERS
 

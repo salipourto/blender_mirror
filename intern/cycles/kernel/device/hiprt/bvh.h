@@ -39,7 +39,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   payload.visibility = visibility;
   payload.prim_type = PRIMITIVE_NONE;
   payload.ray_time = ray->time;
-  payload.prim_type = PRIMITIVE_TRIANGLE;
+  //payload.prim_type = PRIMITIVE_TRIANGLE;
 
   hiprtHit hit = {};
 
@@ -67,8 +67,8 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
         b_hit = true;
         set_intersect_point(kg, hit, isect);
         if (isect->type & PRIMITIVE_CURVE) {
-          isect->prim = payload.prim_id;
           isect->type = payload.prim_type;
+		  isect->prim = hit.primID;
         }
       }
     }
@@ -90,6 +90,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
       isect->type = payload.prim_type;
+      isect->prim = hit.primID;
     }
     return true;
   }
@@ -287,6 +288,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
       isect->type = payload.prim_type;
+	  isect->prim = hit.primID;
     }
     return true;
   }

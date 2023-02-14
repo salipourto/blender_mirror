@@ -1258,14 +1258,14 @@ elseif(WIN32)
 
   if(WITH_CYCLES_DEVICE_HIPRT)
   set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
-  target_link_libraries(blender ${HIPRTSDK}/hiprt64.lib)
+  target_link_libraries(blender ${HIPRTSDK}/hiprt0200064.lib)
     if(NOT WITH_CYCLES_HIPRT_BINARIES)
       install(
         FILES
-        ${HIPRTSDK}/hiprt64.dll
-        ${HIPRTSDK}/hiprtc0503.dll
-        ${HIPRTSDK}/hiprtc-builtins0503.dll
-        ${HIPRTSDK}/amd_comgr0503.dll
+        ${HIPRTSDK}/hiprt0200064.dll
+        ${HIPRTSDK}/hiprtc0504.dll
+        ${HIPRTSDK}/hiprtc-builtins0504.dll
+        ${HIPRTSDK}/amd_comgr0504.dll
         DESTINATION ${TARGETDIR_LIB}
       )
     endif()

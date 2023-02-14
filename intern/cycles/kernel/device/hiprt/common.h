@@ -133,7 +133,7 @@ ccl_device_inline bool curve_custom_intersect(const hiprtRay &ray,
   // data_offset.y: the offset that has to be added to a local primitive to get the global
   // primitive id = kernel_data_fetch(object_prim_offset, object_id);
 
-  int prim_offset = kernel_data_fetch(object_prim_offset, object_id);  // data_offset.y;
+  int prim_offset = data_offset.y;
 
   int curve_index = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
   int key_value = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).y;
@@ -577,5 +577,61 @@ ccl_device_inline bool volume_intersection_filter(const hiprtRay &ray,
     return true;
   else
     return false;
+}
+HIPRT_DEVICE bool intersectFunc( u32 geomType, u32 rayType, const hiprtFuncTableHeader& tableHeader, const hiprtRay& ray, void* payload, hiprtHit& hit )
+{	
+	
+	const u32 index = tableHeader.numGeomTypes * rayType + geomType;
+	const void* data = tableHeader.funcDataSets[index].filterFuncData;
+	switch ( index ) 
+	{
+		case 1:
+		case 5:
+		case 9:
+		case 13:
+			return curve_custom_intersect( ray, data, payload, hit );
+		case 2: 
+		case 6:
+		case 10: //motion_triangle_custom_local_intersect
+		case 14: //motion_triangle_custom_volume_intersect
+			return motion_triangle_custom_intersect( ray, data, payload, hit );
+		case 3: 
+		case 7:
+		case 11:
+		case 15:
+			return point_custom_intersect( ray, data, payload, hit );
+		 default: 
+		 break;
+	}
+	return false;
+}
+HIPRT_DEVICE bool filterFunc( u32 geomType, u32 rayType, const hiprtFuncTableHeader& tableHeader, const hiprtRay& ray, void* payload, const hiprtHit& hit )
+{
+	const u32 index = tableHeader.numGeomTypes * rayType + geomType;
+	const void* data = tableHeader.funcDataSets[index].intersectFuncData;
+	switch ( index ) 
+	{
+		case 0: 
+			return opaque_intersection_filter( ray, data, payload, hit );
+		case 4: 
+		case 5:
+		case 6:
+		case 7:
+			return shadow_intersection_filter( ray, data, payload, hit );
+		case 8: 
+		case 9: 
+		case 10: 
+		case 11: 
+			return local_intersection_filter( ray, data, payload, hit );
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+			return volume_intersection_filter( ray, data, payload, hit );
+		default:
+			break;
+	}
+	
+	return false;
 }
 #endif

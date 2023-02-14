@@ -88,6 +88,10 @@ set(SRC_KERNEL_DEVICE_HIPRT_HEADERS
   device/hiprt/common.h
   device/hiprt/globals.h
   device/hiprt/hiprt_kernels.h
+  device/hiprt/hiprt_common.h
+  device/hiprt/hiprt_device.h
+  device/hiprt/hiprt_types.h
+  device/hiprt/hiprt_vec.h
 )
 
 set(SRC_KERNEL_DEVICE_OPTIX_HEADERS
@@ -1035,7 +1039,6 @@ delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIP}" ${CYCLES_
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIP_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hip)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIPRT}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hiprt)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_HIPRT_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/hiprt)
-#delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "device\\hiprt\\hiprt" ${CYCLES_INSTALL_PATH}/source/hiprt)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_OPTIX}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_OPTIX_HEADERS}" ${CYCLES_INSTALL_PATH}/source/kernel/device/optix)
 delayed_install(${CMAKE_CURRENT_SOURCE_DIR} "${SRC_KERNEL_DEVICE_METAL}" ${CYCLES_INSTALL_PATH}/source/kernel/device/metal)

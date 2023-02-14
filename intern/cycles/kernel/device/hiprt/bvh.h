@@ -39,7 +39,6 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   payload.visibility = visibility;
   payload.prim_type = PRIMITIVE_NONE;
   payload.ray_time = ray->time;
-  payload.prim_type = PRIMITIVE_TRIANGLE;
 
   hiprtHit hit = {};
 
@@ -58,7 +57,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
       if (visibility & PATH_RAY_SHADOW_OPAQUE) {
         set_intersect_point(kg, hit, isect);
         if (isect->type & PRIMITIVE_CURVE) {
-          isect->prim = payload.prim_id;
+          isect->prim = hit.primID;
           isect->type = payload.prim_type;
         }
         return true;
@@ -67,8 +66,8 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
         b_hit = true;
         set_intersect_point(kg, hit, isect);
         if (isect->type & PRIMITIVE_CURVE) {
-          isect->prim = payload.prim_id;
           isect->type = payload.prim_type;
+		  isect->prim = hit.primID;
         }
       }
     }
@@ -90,6 +89,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
       isect->type = payload.prim_type;
+      isect->prim = hit.primID;
     }
     return true;
   }
@@ -136,6 +136,8 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   ray_hip.direction = dir;
   ray_hip.maxT = ray->tmax;
   ray_hip.minT = ray->tmin;
+  
+  const hiprtRay ray_hip_const = ray_hip;
 
   LocalPayload payload = {0};
   payload.kg = kg;
@@ -171,7 +173,7 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
 
 #    ifdef HIPRT_SHARED_STACK
   hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(
-      local_geom, ray_hip, stack, hiprtTraversalHintDefault, &payload, __table_local_intersect, 2);
+      local_geom, ray_hip/*ray_hip_const*/, stack, hiprtTraversalHintDefault, &payload, __table_local_intersect, 2);
 #    else
   hiprtGeomTraversalAnyHit traversal(
       local_geom, ray_hip, table, hiprtTraversalHintDefault, &payload);
@@ -287,6 +289,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
       isect->type = payload.prim_type;
+	  isect->prim = hit.primID;
     }
     return true;
   }

@@ -124,9 +124,13 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
     rtc_options.push_back(include_option.c_str());
 
     std::string src_txt;
+
     path_read_text(source_path, src_txt);
 
     hiprtcProgram intersection = 0;
+
+#  if 0
+
     vector<uint8_t> intersection_binary;
 
     hiprtError e = hiprtBuildTraceProgram(hiprt_context,
@@ -153,8 +157,79 @@ bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
       e = hiprtBuildTraceGetBinary(&intersection, &binary_size, intersection_binary.data());
       if (path_write_binary(fatbin_rt, intersection_binary))
         return true;
+      return false;
     }
+#  else
+
+    rtc_options.push_back("-fgpu-rdc");
+    rtc_options.push_back("-Xclang");
+    rtc_options.push_back("-mno-constructor-aliases");
+    rtc_options.push_back("-D __USE_HIP__");
+    rtc_options.push_back("-save-temps");
+    rtc_options.push_back("-std=c++17");
+
+
+
+
+    hiprtcResult result = hiprtcCreateProgram(&intersection, src_txt.c_str(), 0, 0, 0, 0);
+    vector<string> kernel_names_str;
+    vector<const char *> kernel_names_char;
+
+    for (int i = 0; i < (int)ccl::DEVICE_KERNEL_NUM; i++) {
+
+      if (i == ccl::DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL) {
+        continue;
+      }
+
+      const std::string function_name = std::string("kernel_gpu_") +
+                                        ccl::device_kernel_as_string((ccl::DeviceKernel)i);
+
+      kernel_names_str.push_back(function_name);
+      kernel_names_char.push_back(kernel_names_str[i].c_str());
+
+      result = hiprtcAddNameExpression(intersection, function_name.c_str());
+    }
+
+    result = hiprtcCompileProgram(intersection, rtc_options.size(), rtc_options.data());
+    if (result == 0) {
+      size_t bitcode_size = 0;
+      result = hiprtcGetBitcodeSize(intersection, &bitcode_size);
+      vector<char> intersection_bitcode;
+      intersection_bitcode.resize(bitcode_size);
+
+      result = hiprtcGetBitcode(intersection, intersection_bitcode.data());
+
+      std::vector<char> intersection_compiled;
+      vector<hiprtApiFunction> api_functions;
+      api_functions.resize(kernel_names_char.size());
+
+      hiprtError e = hiprtBuildTraceKernelsFromBitcode(
+          hiprt_context,
+          kernel_names_char.size(),
+          kernel_names_char.data(),
+          source_path.c_str(),
+          intersection_bitcode.data(),
+          bitcode_size,
+          hiprt_rtc_helper::Max_Primitive_Type,
+          hiprt_rtc_helper::Max_Intersect_Filter_Function,
+          func_name_set,
+          api_functions.data(),
+          &intersection_compiled);
+
+      if (e == 0) {
+
+        vector<uint8_t> intersection_binary(intersection_compiled.begin(),
+                                            intersection_compiled.end());
+
+        if (path_write_binary(fatbin_rt, intersection_binary))
+          return true;
+      }
+    }
+
     return false;
+
+    #endif
+
   }
   return true;
 }
@@ -199,6 +274,7 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   if (!set_function_table(func_name_sets))
     return string();
 
+
   if (!use_adaptive_compilation()) {
     const string fatbin = path_get(string_printf("lib/%s_rt_%s.fatbin", name, arch));
     VLOG(1) << "Testing for pre-compiled kernel " << fatbin << ".";
@@ -215,7 +291,9 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   const string kernel_md5 = util_md5_string(source_md5 + common_cflags);
 
   const string include_path = source_path;
-  const string fatbin_file = string_printf("cycles_%s_%s_%s", name, arch, kernel_md5.c_str());
+  const string bitcode_file = string_printf("cycles_%s_%s_%s.bc", name, arch, kernel_md5.c_str());
+  const string bitcode = path_cache_get(path_join("kernels", bitcode_file));
+  const string fatbin_file = string_printf("cycles_%s_%s_%s.hipfb", name, arch, kernel_md5.c_str());
   const string fatbin = path_cache_get(path_join("kernels", fatbin_file));
 
   VLOG(1) << "Testing for locally compiled kernel " << fatbin << ".";
@@ -244,6 +322,26 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   }
 #  endif
 
+
+   const char *const hipcc = hipewCompilerPath();
+  if (hipcc == NULL) {
+    set_error(
+        "HIP hipcc compiler not found. "
+        "Install HIP toolkit in default location.");
+    return string();
+  }
+
+  const int hipcc_hip_version = hipewCompilerVersion();
+  VLOG_INFO << "Found hipcc " << hipcc << ", HIP version " << hipcc_hip_version << ".";
+  if (hipcc_hip_version < 40) {
+    printf(
+        "Unsupported HIP version %d.%d detected, "
+        "you need HIP 4.0 or newer.\n",
+        hipcc_hip_version / 10,
+        hipcc_hip_version % 10);
+    return string();
+  }
+
   path_create_directories(fatbin);
 
   source_path = path_join(path_join(source_path, "kernel"),
@@ -253,12 +351,89 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
 
   double starttime = time_dt();
 
-  if (!compile_RT_kernel(fatbin, include_path, source_path, func_name_sets)) {
+  // compile hipcc
+  if (!path_exists(bitcode)) {
+
+    std::string rtc_options;
+
+    rtc_options.append(" --offload-arch=").append(arch);
+
+    const std::string block_size_str = std::to_string(HIPRT_THREAD_GROUP_SIZE);
+    const std::string stack_size_str = std::to_string(HIPRT_SHARED_STACK_SIZE);
+    const std::string global_stack_size_thread = std::to_string(HIPRT_THREAD_STACK_SIZE);
+    const std::string global_stack_size = std::to_string(HIPRT_GLOBAL_STACK_SIZE);
+
+    string block_size_def = " -D HIPRT_THREAD_GROUP_SIZE=" + block_size_str;
+    string stack_size_def = " -D HIPRT_SHARED_STACK_SIZE=" + stack_size_str;
+    string global_stack_size_thread_def = " -D HIPRT_THREAD_STACK_SIZE=" +
+                                          global_stack_size_thread;
+    string global_stack_size_def = " -D HIPRT_GLOBAL_STACK_SIZE=" + global_stack_size;
+
+    if (use_lds) {
+
+      rtc_options.append(block_size_def.c_str());
+      rtc_options.append(stack_size_def.c_str());
+      rtc_options.append(global_stack_size_thread_def.c_str());
+      rtc_options.append(global_stack_size_def.c_str());
+
+      rtc_options.append(" -DHIPRT_SHARED_STACK");
+    }
+
+#  ifdef HIPRT_INTERSECTION_FILTERS
+    rtc_options.append(" -DHIPRT_INTERSECTION_FILTERS");
+#  endif
+
+    rtc_options.append(" -D __HIPRT__");
+    rtc_options.append(" -ffast-math");
+    rtc_options.append(" -O3 -std=c++17");
+    rtc_options.append(" -fgpu-rdc -c --gpu-bundle-output -c -emit-llvm");
+
+
+    string command = string_printf("%s %s -I %s  %s -o \"%s\"",
+                                   hipcc,
+                                   rtc_options.c_str(),
+                                   include_path.c_str(),
+                                   source_path.c_str(),
+                                   bitcode.c_str());
+
+    printf("Compiling %sHIP kernel ...\n%s\n",
+           (use_adaptive_compilation()) ? "adaptive " : "",
+           command.c_str());
+
+#  ifdef _WIN32
+    command = "call " + command;
+#  endif
+    if (system(command.c_str()) != 0) {
+      set_error(
+          "Failed to execute compilation command, "
+          "see console for details.");
+      return string();
+    }
+  }
+
+  //linking
+  // linking
+  std::string linker_options;
+  linker_options.append(" --offload-arch=").append(arch);
+  linker_options.append(" -fgpu-rdc --hip-link --cuda-device-only ");
+  std::string hiprt_bc("hiprt02000_amd_lib_win.bc");
+
+  std::string linker_command = string_printf("clang %s \"%s\" %s -o \"%s\"",
+                                             linker_options.c_str(),
+                                             bitcode.c_str(),
+                                             hiprt_bc.c_str(),
+                                             fatbin.c_str());
+
+#  ifdef _WIN32
+  linker_command = "call " + linker_command;
+#  endif
+  if (system(linker_command.c_str()) != 0) {
     set_error(
-        "HIP RTC kernel compilation failed, "
+        "Failed to execute linking command, "
         "see console for details.");
     return string();
   }
+
 
   printf("Kernel compilation finished in %.2lfs.\n", time_dt() - starttime);
 
@@ -485,19 +660,35 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
   }
 
   int num_bounds = 0;
+  float3 *curve_keys = hair->get_curve_keys().data();
 
   for (uint j = 0; j < num_curves; j++) {
     const Hair::Curve curve = hair->get_curve(j);
     const float *curve_radius = &hair->get_curve_radius()[0];
+    int first_key = curve.first_key;
     for (int k = 0; k < curve.num_keys - 1; k++) {
       if (curve_attr_mP == NULL || bvh->params.num_motion_curve_steps == 0) {
+        float3 current_keys[4];
+        current_keys[0] = curve_keys[max(first_key + k - 1, first_key)];
+        current_keys[1] = curve_keys[first_key + k];
+        current_keys[2] = curve_keys[first_key + k + 1];
+        current_keys[3] = curve_keys[min(first_key + k + 2, first_key + curve.num_keys - 1)];
+
+        if (current_keys[0].x == current_keys[1].x && current_keys[1].x == current_keys[2].x &&
+            current_keys[2].x == current_keys[3].x &&
+            current_keys[0].y == current_keys[1].y && current_keys[1].y == current_keys[2].y &&
+            current_keys[2].y == current_keys[3].y &&
+            current_keys[0].z == current_keys[1].z && current_keys[1].z == current_keys[2].z &&
+            current_keys[2].z == current_keys[3].z)
+          continue;
+
         BoundBox bounds = BoundBox::empty;
         curve.bounds_grow(k, &hair->get_curve_keys()[0], curve_radius, bounds);
         if (bounds.valid()) {
           int type = PRIMITIVE_PACK_SEGMENT(primitive_type, k);
           bvh->custom_prim_info[num_bounds].x = j;
-          bvh->custom_prim_info[num_bounds].y = type;  // k;
-          bvh->custom_primitive_bound[num_bounds] = bounds;
+          bvh->custom_prim_info[num_bounds].y = type;
+            bvh->custom_primitive_bound[num_bounds] = bounds;
           num_bounds++;
         }
       }
@@ -559,7 +750,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
     }
   }
 
-  bvh->custom_prim_aabb.aabbCount = bvh->custom_primitive_bound.size();
+  bvh->custom_prim_aabb.aabbCount = num_bounds;
   bvh->custom_prim_aabb.aabbStride = sizeof(BoundBox);
   bvh->custom_primitive_bound.copy_to_device();
   bvh->custom_prim_aabb.aabbs = (void *)bvh->custom_primitive_bound.device_pointer;
@@ -886,9 +1077,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   scene_input_ptr.instanceCount = num_instances;
   scene_input_ptr.frameCount = frame_count;
   scene_input_ptr.frameType = hiprtFrameTypeMatrix;
-#  ifdef KERNEL_TIME
-  printf("Number Instance\t%d\n", (int)num_instances);
-#  endif
+
 
   instance_id_map_.copy_to_device();
   blender_object_id.copy_to_device();

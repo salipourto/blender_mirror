@@ -3,6 +3,7 @@
 #ifdef __HIP_DEVICE_COMPILE__
 
 #  include "kernel/device/hiprt/compat.h"
+#  include "kernel/device/hiprt/hiprt_device.h"
 #  include "kernel/device/hiprt/config.h"
 #  include "kernel/device/hiprt/globals.h"
 

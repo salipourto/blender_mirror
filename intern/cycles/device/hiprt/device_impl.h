@@ -9,7 +9,15 @@
 #  include "device/hip/kernel.h"
 #  include "device/hip/queue.h"
 #  include "device/hiprt/queue.h"
-#  include "device/hiprt/rtc_util.h"
+#  include "hiprt/hiprt.h"
+
+#  define HIPRT_INTERSECTION_FILTERS
+
+#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
+#  define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread
+#  define HIPRT_THREAD_STACK_SIZE 64  // global stack allocation per thread
+#  define HIPRT_THREAD_GROUP_SIZE \
+    256  // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
 
 CCL_NAMESPACE_BEGIN
 
@@ -54,6 +62,9 @@ class HIPRTDevice : public HIPDevice {
   bool use_lds;
 
  protected:
+
+   enum Filter_Function { Opaque = 0, Shadows, SSR, Volume, Max_Intersect_Filter_Function };
+   enum Primitive_Type { Triangle = 0, Curve, Motion_Triangle, Point, Max_Primitive_Type };
 
   bool set_function_table(hiprtFuncNameSet *func_name_set);
 

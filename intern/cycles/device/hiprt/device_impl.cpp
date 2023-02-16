@@ -108,18 +108,48 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
 bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 {
 
-  hiprt_rtc_helper::get_custom_function_names(func_name_set);
+    static const char *filter_functions[] = {
+      "opaque_intersection_filter",
+      "shadow_intersection_filter",
+      "local_intersection_filter",
+      "volume_intersection_filter",
+  };
+
+  static const char *intersect_function[] = {"none",
+                                             "curve_custom_intersect",
+                                             "motion_triangle_custom_intersect",
+                                             "point_custom_intersect"};
+
+  //"motion_triangle_custom_local_intersect", "motion_triangle_custom_volume_intersect"
+
+    for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
+       filter_function++) {
+    for (int prim = 0; prim < Max_Primitive_Type; prim++) {
+      int table_index = prim + filter_function * Max_Intersect_Filter_Function;
+      if (prim != Triangle && filter_function != Opaque) {
+        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
+        func_name_set[table_index].intersectFuncName = intersect_function[prim];
+      }
+      else if (prim == Triangle)
+        // triangle primitives dont need a custom intersection function
+        func_name_set[table_index].filterFuncName = filter_functions[filter_function];
+      else
+        // custom primitives for scene_intersect don't need a filter function because the custom
+        // intersection function can handle whatever filter function plans to achieve
+        func_name_set[table_index].intersectFuncName = intersect_function[prim];
+    }
+  }
 
   hiprtFuncDataSet func_data_set;
   hiprtError result = hiprtCreateFuncTable(hiprt_context,
-                                           hiprt_rtc_helper::Max_Primitive_Type,
-                                           hiprt_rtc_helper::Max_Intersect_Filter_Function,
+                                           Max_Primitive_Type,
+                                           Max_Intersect_Filter_Function,
                                            &functions_table);
   if (result == 0)
     result = hiprtSetFuncTable(hiprt_context,
                                functions_table,
-                               hiprt_rtc_helper::Max_Primitive_Type,
-                               hiprt_rtc_helper::Max_Intersect_Filter_Function,
+                               Max_Primitive_Type,
+                               Max_Intersect_Filter_Function,
                                func_data_set);
 
   return (result == hiprtSuccess);
@@ -139,8 +169,8 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
     arch = props.gcnArchName;
   }
 
-  hiprtFuncNameSet func_name_sets[hiprt_rtc_helper::Max_Primitive_Type *
-                                  hiprt_rtc_helper::Max_Intersect_Filter_Function];
+  hiprtFuncNameSet func_name_sets[Max_Primitive_Type *
+                                  Max_Intersect_Filter_Function];
 
   if (!set_function_table(func_name_sets))
     return string();
@@ -412,7 +442,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 {
 
   hiprtGeometryBuildInput geomInput;
-  geomInput.geomType = hiprt_rtc_helper::Triangle;
+  geomInput.geomType = Triangle;
 
   if (mesh->has_motion_blur() &&
       !(bvh->params.num_motion_triangle_steps == 0 || bvh->params.use_spatial_split)) {
@@ -471,7 +501,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
 
     geomInput.type = hiprtPrimitiveTypeAABBList;
     geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-    geomInput.geomType = hiprt_rtc_helper::Motion_Triangle;
+    geomInput.geomType = Motion_Triangle;
   }
   else {
 
@@ -628,7 +658,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-  geomInput.geomType = hiprt_rtc_helper::Curve;
+  geomInput.geomType = Curve;
 
   return geomInput;
 }
@@ -730,7 +760,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
 
   geomInput.type = hiprtPrimitiveTypeAABBList;
   geomInput.aabbList.primitive = &bvh->custom_prim_aabb;
-  geomInput.geomType = hiprt_rtc_helper::Point;
+  geomInput.geomType = Point;
 
   return geomInput;
 }
@@ -1024,7 +1054,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
                           "__table_local_intersect",
                           "__table_volume_intersect"};
 
-  for (int table_index = 0; table_index < hiprt_rtc_helper::Max_Intersect_Filter_Function;
+  for (int table_index = 0; table_index < Max_Intersect_Filter_Function;
        table_index++) {
 
     size_t table_ptr_size = 0;

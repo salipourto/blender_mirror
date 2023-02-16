@@ -80,8 +80,6 @@ set(SRC_HIPRT
   hiprt/device_impl.h
   hiprt/queue.cpp
   hiprt/queue.h
-  hiprt/rtc_util.cpp
-  hiprt/rtc_util.h
 )
 
 set(SRC_ONEAPI

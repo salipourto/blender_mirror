@@ -54,10 +54,6 @@ class HIPRTDevice : public HIPDevice {
   bool use_lds;
 
  protected:
-  bool compile_RT_kernel(const string fatbin_rt,
-                         const string include_path,
-                         const string source_path,
-                         hiprtFuncNameSet *func_name_set);
 
   bool set_function_table(hiprtFuncNameSet *func_name_set);
 

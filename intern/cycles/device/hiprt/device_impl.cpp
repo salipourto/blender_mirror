@@ -105,135 +105,6 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
   return cflags;
 }
 
-bool HIPRTDevice::compile_RT_kernel(const string fatbin_rt,
-                                    const string include_path,
-                                    const string source_path,
-                                    hiprtFuncNameSet *func_name_set)
-{
-  if (!path_exists(fatbin_rt)) {
-
-    std::vector<const char *> function_names;
-    std::vector<std::string> function_name_str;
-    hiprt_rtc_helper::get_kernel_names(function_name_str, function_names);
-
-    std::vector<const char *> rtc_options;
-    hiprt_rtc_helper::shared_stack_property stack_proeprty;
-    hiprt_rtc_helper::get_compiler_options(rtc_options, stack_proeprty, use_lds);
-
-    string include_option = "-I" + include_path;
-    rtc_options.push_back(include_option.c_str());
-
-    std::string src_txt;
-
-    path_read_text(source_path, src_txt);
-
-    hiprtcProgram intersection = 0;
-
-#  if 0
-
-    vector<uint8_t> intersection_binary;
-
-    hiprtError e = hiprtBuildTraceProgram(hiprt_context,
-                                          function_names.size(),
-                                          function_names.data(),
-                                          src_txt.c_str(),  // source code
-                                          0,                // program name, can be null
-                                          0,
-                                          0,
-                                          0,
-                                          rtc_options.size(),
-                                          rtc_options.data(),
-                                          hiprt_rtc_helper::Max_Primitive_Type,
-                                          hiprt_rtc_helper::Max_Intersect_Filter_Function,
-                                          func_name_set,
-                                          &intersection);
-
-    size_t binary_size = 0;
-    if (e == 0)
-      e = hiprtBuildTraceGetBinary(&intersection, &binary_size, nullptr);
-
-    if (binary_size > 0) {
-      intersection_binary.resize(binary_size);
-      e = hiprtBuildTraceGetBinary(&intersection, &binary_size, intersection_binary.data());
-      if (path_write_binary(fatbin_rt, intersection_binary))
-        return true;
-      return false;
-    }
-#  else
-
-    rtc_options.push_back("-fgpu-rdc");
-    rtc_options.push_back("-Xclang");
-    rtc_options.push_back("-mno-constructor-aliases");
-    rtc_options.push_back("-D __USE_HIP__");
-    rtc_options.push_back("-save-temps");
-    rtc_options.push_back("-std=c++17");
-
-
-
-
-    hiprtcResult result = hiprtcCreateProgram(&intersection, src_txt.c_str(), 0, 0, 0, 0);
-    vector<string> kernel_names_str;
-    vector<const char *> kernel_names_char;
-
-    for (int i = 0; i < (int)ccl::DEVICE_KERNEL_NUM; i++) {
-
-      if (i == ccl::DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL) {
-        continue;
-      }
-
-      const std::string function_name = std::string("kernel_gpu_") +
-                                        ccl::device_kernel_as_string((ccl::DeviceKernel)i);
-
-      kernel_names_str.push_back(function_name);
-      kernel_names_char.push_back(kernel_names_str[i].c_str());
-
-      result = hiprtcAddNameExpression(intersection, function_name.c_str());
-    }
-
-    result = hiprtcCompileProgram(intersection, rtc_options.size(), rtc_options.data());
-    if (result == 0) {
-      size_t bitcode_size = 0;
-      result = hiprtcGetBitcodeSize(intersection, &bitcode_size);
-      vector<char> intersection_bitcode;
-      intersection_bitcode.resize(bitcode_size);
-
-      result = hiprtcGetBitcode(intersection, intersection_bitcode.data());
-
-      std::vector<char> intersection_compiled;
-      vector<hiprtApiFunction> api_functions;
-      api_functions.resize(kernel_names_char.size());
-
-      hiprtError e = hiprtBuildTraceKernelsFromBitcode(
-          hiprt_context,
-          kernel_names_char.size(),
-          kernel_names_char.data(),
-          source_path.c_str(),
-          intersection_bitcode.data(),
-          bitcode_size,
-          hiprt_rtc_helper::Max_Primitive_Type,
-          hiprt_rtc_helper::Max_Intersect_Filter_Function,
-          func_name_set,
-          api_functions.data(),
-          &intersection_compiled);
-
-      if (e == 0) {
-
-        vector<uint8_t> intersection_binary(intersection_compiled.begin(),
-                                            intersection_compiled.end());
-
-        if (path_write_binary(fatbin_rt, intersection_binary))
-          return true;
-      }
-    }
-
-    return false;
-
-    #endif
-
-  }
-  return true;
-}
-
 bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 {
 
@@ -276,7 +147,7 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
 
 
   if (!use_adaptive_compilation()) {
-    const string fatbin = path_get(string_printf("lib/%s_rt_%s.fatbin", name, arch));
+    const string fatbin = path_get(string_printf("lib/%s_rt_gfx.hipfb", name));
     VLOG(1) << "Testing for pre-compiled kernel " << fatbin << ".";
     if (path_exists(fatbin)) {
       VLOG(1) << "Using precompiled kernel.";

@@ -10,7 +10,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-#if !defined(__KERNEL_METAL__) && !defined(__HIPCC_RTC__)
+#if !defined(__KERNEL_METAL__)
 ccl_device_inline bool operator==(const int2 a, const int2 b)
 {
   return (a.x == b.x && a.y == b.y);

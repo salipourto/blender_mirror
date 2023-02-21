@@ -62,7 +62,7 @@ ccl_device_inline float4 make_float4(float x, float y, float z, float w)
 }
 
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline float4 make_float4(float f)
 {
 #ifdef __KERNEL_SSE__
@@ -71,7 +71,7 @@ ccl_device_inline float4 make_float4(float f)
   return make_float4(f, f, f, f);
 #endif
 }
-#endif
+
 
 ccl_device_inline float4 make_float4(const int4 i)
 {

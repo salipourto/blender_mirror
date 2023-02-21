@@ -54,9 +54,9 @@ struct ccl_try_align(16) float3
 
 ccl_device_inline float3 make_float3(float x, float y, float z);
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline float3 make_float3(float f);
-#endif
+
 ccl_device_inline void print_float3(ccl_private const char *label, const float3 a);
 
 /* Smaller float3 for storage. For math operations this must be converted to float3, so that on the

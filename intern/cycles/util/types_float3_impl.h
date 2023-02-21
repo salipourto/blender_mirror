@@ -68,7 +68,7 @@ ccl_device_inline float3 make_float3(float x, float y, float z)
 }
 
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline float3 make_float3(float f)
 {
 #if defined(__KERNEL_GPU__)
@@ -79,7 +79,7 @@ ccl_device_inline float3 make_float3(float f)
   return {f, f, f, f};
 #endif
 }
-#endif
+
 ccl_device_inline void print_float3(ccl_private const char *label, const float3 a)
 {
 #ifdef __KERNEL_PRINTF__

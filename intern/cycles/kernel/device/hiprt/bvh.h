@@ -50,7 +50,7 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
   bool b_hit = false;
 
   while (hit.hasHit()) {
-    int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+    int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
     int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
     int prim = hit.primID + prim_offset;
     if (!intersection_skip_self_shadow(ray->self, object_id, prim)) {
@@ -149,7 +149,7 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
 
   GET_TRAVERSAL_STACK()
 
-  void *local_geom = (void *)(kernel_data_fetch(__instance_geometry, local_object));
+  void *local_geom = (void *)(kernel_data_fetch(blas_ptr, local_object));
   // we don't need custom intersection functions for SSR
 #  ifndef HIPRT_INTERSECTION_FILTERS
 #    if defined(HIPRT_SHARED_STACK)
@@ -264,7 +264,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   bool b_hit = false;
 
   while (hit.hasHit()) {
-    int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+    int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
     int object_flag = kernel_data_fetch(object_flag, object_id);
     int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
     int prim_id = hit.primID + prim_offset;

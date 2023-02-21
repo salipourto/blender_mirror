@@ -66,7 +66,7 @@ ccl_device_inline int4 make_int4(int x, int y, int z, int w)
 }
 
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline int4 make_int4(int i)
 {
 #ifdef __KERNEL_SSE__
@@ -75,7 +75,7 @@ ccl_device_inline int4 make_int4(int i)
   return make_int4(i, i, i, i);
 #endif
 }
-#endif
+
 ccl_device_inline int4 make_int4(const float3 f)
 {
 #if defined(__KERNEL_GPU__)

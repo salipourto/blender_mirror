@@ -27,14 +27,7 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
     return false;
   }
 
-  bool hiprt_shaders = (kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE ||
-                        kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_VOLUME_STACK);
-
-  if (!hiprt_shaders)
+  if (!device_kernel_has_intersection(kernel))
     return HIPDeviceQueue::enqueue(kernel, work_size, args);
 
   DeviceKernelArguments arg_copy = args;
@@ -48,9 +41,7 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
   const int num_blocks = divide_up(work_size, num_threads_per_block);
 
   int shared_mem_bytes = 0;
-#  ifdef KERNEL_TIME
-  double start_time = time_dt();
-#  endif
+
   assert_success(hipModuleLaunchKernel(hip_kernel.function,
                                        num_blocks,
                                        1,
@@ -63,20 +54,6 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
                                        const_cast<void **>(arg_copy.values),
                                        0),
                  "enqueue");
-#  ifdef KERNEL_TIME
-  if (synchronize()) {
-    double kernel_time = (time_dt() - start_time) * 1000;
-
-    if (kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SHADOW)
-      printf("Shadows\t%.3lf ms\n", kernel_time);
-    if (kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_SUBSURFACE)
-      printf("SSR\t%.3lf ms\n", kernel_time);
-    if (kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_VOLUME_STACK)
-      printf("Volume\t%.3lf ms\n", kernel_time);
-    if (kernel == DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST)
-      printf("Opaque\t%.3lf ms\n", kernel_time);
-  }
-#  endif
 
   return !(hiprt_device_->have_error());
 }

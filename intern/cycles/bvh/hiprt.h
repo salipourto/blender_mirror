@@ -30,7 +30,7 @@ class BVHHIPRT : public BVH {
   hiprtAABBListPrimitive custom_prim_aabb;
 
   vector<int2> custom_prim_info;  // x: prim_id, y: prim_type
-  vector<float2> prim_time;
+  vector<float2> prims_time;
 
   // custom primitives
 

@@ -12,12 +12,13 @@
 CCL_NAMESPACE_BEGIN
 
 struct KernelGlobalsGPU {
-  int unused[1];
-#if defined(__HIPRT__)
+
 #  ifdef HIPRT_SHARED_STACK
   int *shared_stack;
+# else
+  int unused[1];
 #  endif
-#endif
+
 };
 typedef ccl_global KernelGlobalsGPU *ccl_restrict KernelGlobals;
 #if defined(__HIPRT__)
@@ -27,23 +28,25 @@ typedef hiprtGlobalStack Stack;
 #endif
 
 #if defined(HIPRT_SHARED_STACK) && defined(__HIPRT__)
-#  define SET_SHARED_MEMORY() \
+//this macro allocate shared memory and to pass the shared memory down to intersection functions
+// KernelGlobals is used 
+#  define HIPRT_SET_SHARED_MEMORY() \
     ccl_gpu_shared int shared_stack[HIPRT_SHARED_STACK_SIZE * HIPRT_THREAD_GROUP_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
     KernelGlobals kg = &kg_gpu; \
     kg->shared_stack = &shared_stack[0];
 #else
-#  define SET_SHARED_MEMORY() KernelGlobals kg = NULL;
+#  define HIPRT_SET_SHARED_MEMORY() KernelGlobals kg = NULL;
 #endif
 struct KernelParamsHIPRT {
   KernelData data;
 #define KERNEL_DATA_ARRAY(type, name) const type *name;
-  KERNEL_DATA_ARRAY(int, __blender_object_id)
-  KERNEL_DATA_ARRAY(uint64_t, __instance_geometry)
-  KERNEL_DATA_ARRAY(int2, __custom_prim_info_offset)
-  KERNEL_DATA_ARRAY(int2, __custom_prim_info)
-  KERNEL_DATA_ARRAY(int, __prim_time_offset)
-  KERNEL_DATA_ARRAY(float2, __prim_time)
+  KERNEL_DATA_ARRAY(int, user_instance_id)
+  KERNEL_DATA_ARRAY(uint64_t, blas_ptr)
+  KERNEL_DATA_ARRAY(int2, custom_prim_info_offset)
+  KERNEL_DATA_ARRAY(int2, custom_prim_info)
+  KERNEL_DATA_ARRAY(int, prim_time_offset)
+  KERNEL_DATA_ARRAY(float2, prims_time)
 #include "kernel/data_arrays.h"
 
   /* Integrator state */

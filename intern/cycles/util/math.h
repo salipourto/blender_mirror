@@ -14,12 +14,10 @@
 #endif
 
 #ifdef __HIP__
-#  if !defined(__HIPCC_RTC__)
 #    include <hip/hip_vector_types.h>
-#  endif
 #endif
 
-#if !defined(__KERNEL_METAL__) && !defined(__HIPCC_RTC__)
+#if !defined(__KERNEL_METAL__)
 #  include <float.h>
 #  include <math.h>
 #  include <stdio.h>

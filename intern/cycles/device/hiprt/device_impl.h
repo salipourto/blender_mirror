@@ -28,7 +28,7 @@ class Geometry;
 class Object;
 class BVHHIPRT;
 
-void get_hiprt_transform(float matrix[][4], Transform &tfm);
+static void get_hiprt_transform(float matrix[][4], Transform &tfm);
 
 class HIPRTDevice : public HIPDevice {
 
@@ -74,20 +74,37 @@ class HIPRTDevice : public HIPDevice {
                         hiprtBuildOptions options,
                         bool refit);
 
-  device_vector<int> instance_id_map_;
-  device_vector<int> blender_object_id;
+
+
+  //instance/object ids are not explicitly  passed to hiprt
+  //hiprt assigns the ids based on the order blas pointers are passed to it (through instanceGeometries member of hiprtSceneBuildInput)
+  //if blas is absent for a particular geometry (e.g. a plane), hiprt removes that entry and in scenes with objects with no blas, the instance id that hiprt
+  //returns for a hit point will not necessarily match the instance id of the application
+  //user_instance_id provides a map for retrieving original instance id from hiprt instance id
+  //hiprt_blas_ptr is the list of all the valid blas pointers
+  //blas_ptr has all the valid pointers and null pointers and blas for any geometry can be directly retrieved from this array (used in subsurface scattering)
+  device_vector<int> user_instance_id;
+  device_vector<uint64_t> hiprt_blas_ptr;
+  device_vector<uint64_t> blas_ptr;
+
+
   device_vector<uint32_t> visibility;
 
-  device_vector<uint64_t> geometry;
-  device_vector<uint64_t> blas_ptr;
-  device_vector<hiprtFrameMatrix> transform_matrix_;
-  device_vector<hiprtTransformHeader> transform_headers_;
+  //instance_transform_matrix passes transform matrix of instances converted from Cycles Transform format to
+  //instanceFrames member of hiprtSceneBuildInput
+  device_vector<hiprtFrameMatrix> instance_transform_matrix;
+  //Movement over a time interval for motion blur is captured through multiple transform matrices
+  //in this case transform matrix of an instance cannot be directly retrieved by looking up instance_transform_matrix at the instance id
+  //transform_headers maps the instance id to the appropriate index to retrieve instance transform matrix (frameIndex member of hiprtTransformHeader)
+  //transform_headers also has the information on how many transform matrices are associated with an instance (frameCount member of hiprtTransformHeader)
+  //transform_headers is passed to hiprt through instanceTransformHeaders member of hiprtSceneBuildInput
+  device_vector<hiprtTransformHeader> transform_headers;
 
   device_vector<int2> custom_prim_info_offset;
   device_vector<int2> custom_prim_info;
 
   device_vector<int> prim_time_offset;
-  device_vector<float2> prim_time;
+  device_vector<float2> prims_time;
 
   hiprtContext hiprt_context;
   hiprtScene scene;

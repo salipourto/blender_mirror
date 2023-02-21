@@ -1164,11 +1164,13 @@ typedef enum KernelBVHLayout {
   BVH_LAYOUT_MULTI_METAL = (1 << 6),
   BVH_LAYOUT_MULTI_METAL_EMBREE = (1 << 7),
   BVH_LAYOUT_HIPRT = (1 << 8),
+  BVH_LAYOUT_MULTI_HIPRT = (1 << 9),
+  BVH_LAYOUT_MULTI_HIPRT_EMBREE = (1 << 10),
 
   /* Default BVH layout to use for CPU. */
   BVH_LAYOUT_AUTO = BVH_LAYOUT_EMBREE,
   BVH_LAYOUT_ALL = BVH_LAYOUT_BVH2 | BVH_LAYOUT_EMBREE | BVH_LAYOUT_OPTIX | BVH_LAYOUT_METAL |
-                   BVH_LAYOUT_HIPRT,
+                   BVH_LAYOUT_HIPRT | BVH_LAYOUT_MULTI_HIPRT | BVH_LAYOUT_MULTI_HIPRT_EMBREE,
 } KernelBVHLayout;
 
 /* Specialized struct that can become constants in dynamic compilation. */

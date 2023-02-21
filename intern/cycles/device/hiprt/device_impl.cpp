@@ -38,17 +38,16 @@ BVHLayoutMask HIPRTDevice::get_bvh_layout_mask() const
 
 HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
     : use_lds(true),
-      instance_id_map_(this, "Instance ID Map", MEM_READ_ONLY),
-      blender_object_id(this, "__blender_object_id", MEM_GLOBAL),
-      visibility(this, "Visibility Mask", MEM_READ_ONLY),
-      geometry(this, "HIPRT BLAS", MEM_READ_WRITE),
-      blas_ptr(this, "__instance_geometry", MEM_GLOBAL),
-      transform_matrix_(this, "Transform Matrix", MEM_READ_ONLY),
-      transform_headers_(this, "Transform Header", MEM_READ_ONLY),
-      custom_prim_info_offset(this, "__custom_prim_info_offset", MEM_GLOBAL),
-      custom_prim_info(this, "__custom_prim_info", MEM_GLOBAL),
-      prim_time_offset(this, "__prim_time_offset", MEM_GLOBAL),
-      prim_time(this, "__prim_time", MEM_GLOBAL),
+      user_instance_id(this, "user_instance_id", MEM_GLOBAL),
+      visibility(this, "visibility", MEM_READ_ONLY),
+      hiprt_blas_ptr(this, "hiprt_blas_ptr", MEM_READ_WRITE),
+      blas_ptr(this, "blas_ptr", MEM_GLOBAL),
+      instance_transform_matrix(this, "instance_transform_matrix", MEM_READ_ONLY),
+      transform_headers(this, "transform_headers", MEM_READ_ONLY),
+      custom_prim_info_offset(this, "custom_prim_info_offset", MEM_GLOBAL),
+      custom_prim_info(this, "custom_prim_info", MEM_GLOBAL),
+      prim_time_offset(this, "prim_time_offset", MEM_GLOBAL),
+      prims_time(this, "prims_time", MEM_GLOBAL),
       hiprt_context(NULL),
       scene(NULL),
       functions_table(NULL),
@@ -69,17 +68,16 @@ HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
 
 HIPRTDevice::~HIPRTDevice()
 {
-  instance_id_map_.free();
-  blender_object_id.free();
+  user_instance_id.free();
   visibility.free();
-  geometry.free();
+  hiprt_blas_ptr.free();
   blas_ptr.free();
-  transform_matrix_.free();
-  transform_headers_.free();
+  instance_transform_matrix.free();
+  transform_headers.free();
   custom_prim_info_offset.free();
   custom_prim_info.free();
   prim_time_offset.free();
-  prim_time.free();
+  prims_time.free();
   hiprtDestroyFuncTable(hiprt_context, functions_table);
   hiprtDestroyScene(hiprt_context, scene);
   hiprtDestroyContext(hiprt_context);
@@ -428,12 +426,12 @@ void HIPRTDevice::const_copy_to(const char *name, void *host, size_t size)
     }
   KERNEL_DATA_ARRAY(KernelData, data)
   KERNEL_DATA_ARRAY(IntegratorStateGPU, integrator_state)
-  KERNEL_DATA_ARRAY(int, __blender_object_id)
-  KERNEL_DATA_ARRAY(uint64_t, __instance_geometry)
-  KERNEL_DATA_ARRAY(int2, __custom_prim_info_offset)
-  KERNEL_DATA_ARRAY(int2, __custom_prim_info)
-  KERNEL_DATA_ARRAY(int, __prim_time_offset)
-  KERNEL_DATA_ARRAY(float2, __prim_time)
+  KERNEL_DATA_ARRAY(int, user_instance_id)
+  KERNEL_DATA_ARRAY(uint64_t, blas_ptr)
+  KERNEL_DATA_ARRAY(int2, custom_prim_info_offset)
+  KERNEL_DATA_ARRAY(int2, custom_prim_info)
+  KERNEL_DATA_ARRAY(int, prim_time_offset)
+  KERNEL_DATA_ARRAY(float2, prims_time)
 #  include "kernel/data_arrays.h"
 #  undef KERNEL_DATA_ARRAY
 }
@@ -486,8 +484,8 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_triangle_blas(BVHHIPRT *bvh, Mesh *
           bvh->custom_primitive_bound[num_bounds] = bounds;
           bvh->custom_prim_info[num_bounds].x = j;
           bvh->custom_prim_info[num_bounds].y = mesh->primitive_type();
-          bvh->prim_time[num_bounds].x = curr_time;
-          bvh->prim_time[num_bounds].y = prev_time;
+          bvh->prims_time[num_bounds].x = curr_time;
+          bvh->prims_time[num_bounds].y = prev_time;
           num_bounds++;
         }
         prev_bounds = curr_bounds;
@@ -641,8 +639,8 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
             bvh->custom_prim_info[num_bounds].x = j;
             bvh->custom_prim_info[num_bounds].y = packed_type;  // k
             bvh->custom_primitive_bound[num_bounds] = bounds;
-            bvh->prim_time[num_bounds].x = curr_time;
-            bvh->prim_time[num_bounds].y = prev_time;
+            bvh->prims_time[num_bounds].x = curr_time;
+            bvh->prims_time[num_bounds].y = prev_time;
             num_bounds++;
           }
           prev_bounds = curr_bounds;
@@ -744,8 +742,8 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_point_blas(BVHHIPRT *bvh, PointClou
           bvh->custom_primitive_bound[num_bounds] = bounds;
           bvh->custom_prim_info[num_bounds].x = j;
           bvh->custom_prim_info[num_bounds].y = PRIMITIVE_MOTION_POINT;
-          bvh->prim_time[num_bounds].x = curr_time;
-          bvh->prim_time[num_bounds].y = prev_time;
+          bvh->prims_time[num_bounds].x = curr_time;
+          bvh->prims_time[num_bounds].y = prev_time;
           num_bounds++;
         }
         prev_bounds = curr_bounds;
@@ -846,12 +844,11 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   int blender_instance_id = 0;
 
   size_t num_object = objects.size();
-  instance_id_map_.alloc(num_object);
-  blender_object_id.alloc(num_object);
+  user_instance_id.alloc(num_object);
   visibility.alloc(num_object);
-  geometry.alloc(num_object);
+  hiprt_blas_ptr.alloc(num_object);
   blas_ptr.alloc(num_object);
-  transform_headers_.alloc(num_object);
+  transform_headers.alloc(num_object);
   custom_prim_info_offset.alloc(num_object);
   prim_time_offset.alloc(num_object);
 
@@ -879,7 +876,7 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
 
       if (is_custom_prim) {
 
-        bool has_motion_blur = current_bvh->prim_time.size() > 0;
+        bool has_motion_blur = current_bvh->prims_time.size() > 0;
 
         unordered_map<Geometry *, int2>::iterator it = prim_info_map.find(geom);
 
@@ -917,12 +914,12 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
           }
 
           if (has_motion_blur) {
-            int time_offset = bvh->prim_time.size();
+            int time_offset = bvh->prims_time.size();
             prim_time_map[geom] = time_offset;
 
-            memcpy(bvh->prim_time.data() + time_offset,
-                   current_bvh->prim_time.data(),
-                   current_bvh->prim_time.size() * sizeof(float2));
+            memcpy(bvh->prims_time.data() + time_offset,
+                   current_bvh->prims_time.data(),
+                   current_bvh->prims_time.size() * sizeof(float2));
 
             prim_time_offset[blender_instance_id] = time_offset;
           }
@@ -962,12 +959,11 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
         transform_matrix.push_back_slow(hiprt_transform_matrix);
       }
 
-      transform_headers_[num_instances] = current_header;
+      transform_headers[num_instances] = current_header;
 
-      instance_id_map_[num_instances] = blender_instance_id;
-      blender_object_id[num_instances] = blender_instance_id;
+      user_instance_id[num_instances] = blender_instance_id;
       visibility[num_instances] = mask;
-      geometry[num_instances] = (uint64_t)hiprt_geom_current;
+      hiprt_blas_ptr[num_instances] = (uint64_t)hiprt_geom_current;
       num_instances++;
     }
     blas_ptr[blender_instance_id] = (uint64_t)hiprt_geom_current;
@@ -980,26 +976,25 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   scene_input_ptr.frameType = hiprtFrameTypeMatrix;
 
 
-  instance_id_map_.copy_to_device();
-  blender_object_id.copy_to_device();
+  user_instance_id.copy_to_device();
   visibility.copy_to_device();
-  geometry.copy_to_device();
+  hiprt_blas_ptr.copy_to_device();
   blas_ptr.copy_to_device();
-  transform_headers_.copy_to_device();
+  transform_headers.copy_to_device();
   {
-    transform_matrix_.alloc(frame_count);
-    transform_matrix_.host_pointer = transform_matrix.data();
-    transform_matrix_.data_elements = sizeof(hiprtFrameMatrix);
-    transform_matrix_.data_type = TYPE_UCHAR;
-    transform_matrix_.data_size = frame_count;
-    transform_matrix_.copy_to_device();
-    transform_matrix_.host_pointer = 0;
+    instance_transform_matrix.alloc(frame_count);
+    instance_transform_matrix.host_pointer = transform_matrix.data();
+    instance_transform_matrix.data_elements = sizeof(hiprtFrameMatrix);
+    instance_transform_matrix.data_type = TYPE_UCHAR;
+    instance_transform_matrix.data_size = frame_count;
+    instance_transform_matrix.copy_to_device();
+    instance_transform_matrix.host_pointer = 0;
   }
 
   scene_input_ptr.instanceMasks = (void *)visibility.device_pointer;
-  scene_input_ptr.instanceGeometries = (void *)geometry.device_pointer;
-  scene_input_ptr.instanceTransformHeaders = (void *)transform_headers_.device_pointer;
-  scene_input_ptr.instanceFrames = (void *)transform_matrix_.device_pointer;
+  scene_input_ptr.instanceGeometries = (void *)hiprt_blas_ptr.device_pointer;
+  scene_input_ptr.instanceTransformHeaders = (void *)transform_headers.device_pointer;
+  scene_input_ptr.instanceFrames = (void *)instance_transform_matrix.device_pointer;
 
   hiprtScene scene = 0;
 
@@ -1036,15 +1031,15 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
     custom_prim_info_offset.copy_to_device();
   }
 
-  if (bvh->prim_time.size()) {
-    size_t data_size = bvh->prim_time.size();
-    prim_time.alloc(data_size);
-    prim_time.host_pointer = bvh->prim_time.data();
-    prim_time.data_elements = 2;
-    prim_time.data_type = TYPE_FLOAT;
-    prim_time.data_size = data_size;
-    prim_time.copy_to_device();
-    prim_time.host_pointer = 0;
+  if (bvh->prims_time.size()) {
+    size_t data_size = bvh->prims_time.size();
+    prims_time.alloc(data_size);
+    prims_time.host_pointer = bvh->prims_time.data();
+    prims_time.data_elements = 2;
+    prims_time.data_type = TYPE_FLOAT;
+    prims_time.data_size = data_size;
+    prims_time.copy_to_device();
+    prims_time.host_pointer = 0;
 
     prim_time_offset.copy_to_device();
   }

@@ -97,7 +97,7 @@ ccl_device_inline void set_intersect_point(KernelGlobals kg,
                                            ccl_private Intersection *isect)
 {
   int prim_offset = 0;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
   prim_offset = kernel_data_fetch(object_prim_offset, object_id);
   isect->type = kernel_data_fetch(objects, object_id).primitive_type;
 
@@ -123,8 +123,8 @@ ccl_device_inline bool curve_custom_intersect(const hiprtRay &ray,
 
   KernelGlobals kg = local_payload->kg;
 
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
-  int2 data_offset = kernel_data_fetch(__custom_prim_info_offset, object_id);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
+  int2 data_offset = kernel_data_fetch(custom_prim_info_offset, object_id);
   // data_offset.x: where the data (prim id, type )for the geometry of the current object begins
   // the prim_id that is in hiprtHit hit is local to the partciular geometry so we add the above
   // ofstream
@@ -135,8 +135,8 @@ ccl_device_inline bool curve_custom_intersect(const hiprtRay &ray,
 
   int prim_offset = data_offset.y;
 
-  int curve_index = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
-  int key_value = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).y;
+  int curve_index = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x).x;
+  int key_value = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x).y;
 
   if (intersection_skip_self_shadow(local_payload->self, object_id, curve_index + prim_offset))
     return false;
@@ -145,10 +145,10 @@ ccl_device_inline bool curve_custom_intersect(const hiprtRay &ray,
 
   if ((key_value & PRIMITIVE_MOTION) && kernel_data.bvh.use_bvh_steps) {
 
-    int time_offset = kernel_data_fetch(__prim_time_offset, object_id);
-    float2 prim_time = kernel_data_fetch(__prim_time, hit.primID + time_offset);
+    int time_offset = kernel_data_fetch(prim_time_offset, object_id);
+    float2 prims_time = kernel_data_fetch(prims_time, hit.primID + time_offset);
 
-    if (ray_time < prim_time.x || ray_time > prim_time.y) {
+    if (ray_time < prims_time.x || ray_time > prims_time.y) {
       return false;
     }
   }
@@ -181,11 +181,11 @@ ccl_device_inline bool motion_triangle_custom_intersect(const hiprtRay &ray,
 #  ifdef MOTION_BLUR
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
-  int2 data_offset = kernel_data_fetch(__custom_prim_info_offset, object_id);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
+  int2 data_offset = kernel_data_fetch(custom_prim_info_offset, object_id);
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
 
-  int prim_id_local = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
+  int prim_id_local = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x).x;
   int prim_id_global = prim_id_local + prim_offset;
 
   if (intersection_skip_self_shadow(local_payload->self, object_id, prim_id_global))
@@ -229,9 +229,9 @@ ccl_device_inline bool motion_triangle_custom_local_intersect(const hiprtRay &ra
   int object_id = local_payload->local_object;
 
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
-  int2 data_offset = kernel_data_fetch(__custom_prim_info_offset, object_id);
+  int2 data_offset = kernel_data_fetch(custom_prim_info_offset, object_id);
 
-  int prim_id_local = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
+  int prim_id_local = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x).x;
   int prim_id_global = prim_id_local + prim_offset;
 
   if (intersection_skip_self_local(local_payload->self, prim_id_global))
@@ -270,16 +270,16 @@ ccl_device_inline bool motion_triangle_custom_volume_intersect(const hiprtRay &r
 
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
   int object_flag = kernel_data_fetch(object_flag, object_id);
 
   if (!(object_flag & SD_OBJECT_HAS_VOLUME))
     return false;
 
-  int2 data_offset = kernel_data_fetch(__custom_prim_info_offset, object_id);
+  int2 data_offset = kernel_data_fetch(custom_prim_info_offset, object_id);
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
 
-  int prim_id_local = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x).x;
+  int prim_id_local = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x).x;
   int prim_id_global = prim_id_local + prim_offset;
 
   if (intersection_skip_self_shadow(local_payload->self, object_id, prim_id_global))
@@ -320,12 +320,12 @@ ccl_device_inline bool point_custom_intersect(const hiprtRay &ray,
 #  ifdef POINT_CLOUD
   RayPayload *local_payload = (RayPayload *)payload;
   KernelGlobals kg = local_payload->kg;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
 
-  int2 data_offset = kernel_data_fetch(__custom_prim_info_offset, object_id);
+  int2 data_offset = kernel_data_fetch(custom_prim_info_offset, object_id);
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
 
-  int2 prim_info = kernel_data_fetch(__custom_prim_info, hit.primID + data_offset.x);
+  int2 prim_info = kernel_data_fetch(custom_prim_info, hit.primID + data_offset.x);
   int prim_id_local = prim_info.x;
   int prim_id_global = prim_id_local + prim_offset;
 
@@ -338,10 +338,10 @@ ccl_device_inline bool point_custom_intersect(const hiprtRay &ray,
 
   if ((type & PRIMITIVE_MOTION) && kernel_data.bvh.use_bvh_steps) {
 
-    int time_offset = kernel_data_fetch(__prim_time_offset, object_id);
-    float2 prim_time = kernel_data_fetch(__prim_time, hit.primID + time_offset);
+    int time_offset = kernel_data_fetch(prim_time_offset, object_id);
+    float2 prims_time = kernel_data_fetch(prims_time, hit.primID + time_offset);
 
-    if (ray_time < prim_time.x || ray_time > prim_time.y) {
+    if (ray_time < prims_time.x || ray_time > prims_time.y) {
       return false;
     }
   }
@@ -380,7 +380,7 @@ ccl_device_inline bool opaque_intersection_filter(const hiprtRay &ray,
                                                   const hiprtHit &hit)
 {
   RayPayload *payload = (RayPayload *)user_data;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
   int prim = hit.primID + prim_offset;
 
@@ -405,7 +405,7 @@ ccl_device_inline bool shadow_intersection_filter(const hiprtRay &ray,
   KernelGlobals kg = payload->kg;
   RaySelfPrimitives self = payload->self;
 
-  int object = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object = kernel_data_fetch(user_instance_id, hit.instanceID);
   int prim_offset = kernel_data_fetch(object_prim_offset, object);
   int prim = hit.primID + prim_offset;
 
@@ -566,7 +566,7 @@ ccl_device_inline bool volume_intersection_filter(const hiprtRay &ray,
                                                   const hiprtHit &hit)
 {
   RayPayload *payload = (RayPayload *)user_data;
-  int object_id = kernel_data_fetch(__blender_object_id, hit.instanceID);
+  int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
   int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
   int prim = hit.primID + prim_offset;
   int object_flag = kernel_data_fetch(object_flag, object_id);

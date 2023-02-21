@@ -68,7 +68,7 @@ ccl_device_inline int3 make_int3(int x, int y, int z)
 }
 
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline int3 make_int3(int i)
 {
 #if defined(__KERNEL_GPU__)
@@ -79,7 +79,6 @@ ccl_device_inline int3 make_int3(int i)
   return {i, i, i, i};
 #endif
 }
-#endif
 
 ccl_device_inline void print_int3(ccl_private const char *label, const int3 a)
 {

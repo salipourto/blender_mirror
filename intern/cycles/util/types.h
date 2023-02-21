@@ -4,7 +4,7 @@
 #ifndef __UTIL_TYPES_H__
 #define __UTIL_TYPES_H__
 
-#if !defined(__KERNEL_METAL__) && !defined(__HIPCC_RTC__)
+#if !defined(__KERNEL_METAL__)
 #  include <stdlib.h>
 #endif
 

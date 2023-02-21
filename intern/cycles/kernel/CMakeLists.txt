@@ -83,8 +83,6 @@ set(SRC_KERNEL_DEVICE_HIP_HEADERS
 
 set(SRC_KERNEL_DEVICE_HIPRT_HEADERS
   device/hiprt/bvh.h
-  device/hiprt/compat.h
-  device/hiprt/config.h
   device/hiprt/common.h
   device/hiprt/globals.h
   device/hiprt/hiprt_kernels.h
@@ -651,130 +649,102 @@ endif()
 if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
 
   set(hiprt_sources device/hiprt/kernel.cpp
-      ${SRC_KERNEL_HEADERS}
-      ${SRC_KERNEL_DEVICE_GPU_HEADERS}
-      ${SRC_KERNEL_DEVICE_HIPRT_HEADERS}
-      ${SRC_UTIL_HEADERS}
-    )
-
+    ${SRC_KERNEL_HEADERS}
+    ${SRC_KERNEL_DEVICE_GPU_HEADERS}
+    ${SRC_KERNEL_DEVICE_HIPRT_HEADERS}
+    ${SRC_UTIL_HEADERS})
 
   set(bitcode_file ${CMAKE_CURRENT_BINARY_DIR}/kernel_rt_gfx.bc)
   set(hiprt_file ${CMAKE_CURRENT_BINARY_DIR}/kernel_rt_gfx.hipfb)
   set(kernel_sources ${sources})
 
   set(hiprt_kernel_src "/device/hiprt/kernel.cpp")
-  #[===[]
-    if(WIN32)
-      set(hiprt_compile_command ${CMAKE_COMMAND})
-      set(hiprt_compile_flags   ${HIP_HIPCC_EXECUTABLE}.bat)
-    else()
-      set(hiprt_compile_command ${HIP_HIPCC_EXECUTABLE})
-      set(hiprt_compile_flags)
-    endif()
-	#]===]
 
   if(WIN32)
-      set(hiprt_compile_command ${CMAKE_COMMAND})
-      set(hiprt_compile_flags
-        -E env "HIP_PATH=${HIP_ROOT_DIR}"
-        ${HIP_HIPCC_EXECUTABLE}.bat)
-    else()
-      set(hiprt_compile_command ${HIP_HIPCC_EXECUTABLE})
-      set(hiprt_compile_flags)
-    endif()
-
-   include(CMakePrintHelpers)
-#cmake_print_variables(${hiprt_compile_flags})
-
-
-	#set(target_gpus)
-  set(target_gpus)
-	
-	foreach(arch ${CYCLES_HIPRT_BINARIES_ARCH})
-		#set(${target_gpus} "--offload-arch=${arch}")
-    list(APPEND target_gpus "--offload-arch=${arch}")
-    endforeach()
-
-    cmake_print_variables(${target_gpus})
-
-
-    
-
-	set(THREAD_GROUP_SIZE 256)
-	set(SHARED_STACK_SIZE 24)
-	set(THREAD_STACK_SIZE 64)
-	set(GLOBAL_STACK_SIZE 536870912)
-
-
+    set(hiprt_compile_command ${CMAKE_COMMAND})
     set(hiprt_compile_flags
-      ${hiprt_compile_flags}
-      ${target_gpus}
-      ${HIP_HIPCC_FLAGS}
-      ${CMAKE_CURRENT_SOURCE_DIR}${hiprt_kernel_src}
-      ${flags}
-      -D CCL_NAMESPACE_BEGIN=
-      -D CCL_NAMESPACE_END=
-      -D HIPCC
-	  -D __HIPRT__
-	  -D HIPRT_SHARED_STACK
-      -D HIPRT_INTERSECTION_FILTERS
-	  -D HIPRT_THREAD_GROUP_SIZE=${THREAD_GROUP_SIZE}
-	  -D HIPRT_SHARED_STACK_SIZE=${SHARED_STACK_SIZE}
-	  -D HIPRT_THREAD_STACK_SIZE=${THREAD_STACK_SIZE}
-	  -D HIPRT_GLOBAL_STACK_SIZE=${GLOBAL_STACK_SIZE}
-      -save-temps
-	  -std=c++17
-	  -fgpu-rdc
-	  -c
-	  --gpu-bundle-output
-	  -emit-llvm
-      -I ${CMAKE_CURRENT_SOURCE_DIR}/..
-      -I ${CMAKE_CURRENT_SOURCE_DIR}/device/hiprt
-      -Wno-parentheses-equality
-      -Wno-unused-value
-      --hipcc-func-supp
-      -ffast-math
-      -o ${bitcode_file})
+    -E env "HIP_PATH=${HIP_ROOT_DIR}"
+    ${HIP_HIPCC_EXECUTABLE}.bat)
+  else()
+    set(hiprt_compile_command ${HIP_HIPCC_EXECUTABLE})
+    set(hiprt_compile_flags)
+  endif()
 
+  set(target_gpus)
 
-    if(WITH_CYCLES_DEBUG)
-      set(hiprt_compile_flags ${hiprt_compile_flags} -D WITH_CYCLES_DEBUG)
-    endif()
+  foreach(arch ${CYCLES_HIPRT_BINARIES_ARCH})
+    list(APPEND target_gpus "--offload-arch=${arch}")
+  endforeach()
 
+  set(THREAD_GROUP_SIZE 256)
+  set(SHARED_STACK_SIZE 24)
+  set(THREAD_STACK_SIZE 64)
+  set(GLOBAL_STACK_SIZE 536870912)
 
-set(hiprt_ver 02000)
+  set(hiprt_compile_flags
+    ${hiprt_compile_flags}
+    ${target_gpus}
+    ${HIP_HIPCC_FLAGS}
+    ${CMAKE_CURRENT_SOURCE_DIR}${hiprt_kernel_src}
+    ${flags}
+    -D CCL_NAMESPACE_BEGIN=
+    -D CCL_NAMESPACE_END=
+    -D HIPCC
+    -D __HIPRT__
+    -D HIPRT_SHARED_STACK
+    -D HIPRT_INTERSECTION_FILTERS
+    -D HIPRT_THREAD_GROUP_SIZE=${THREAD_GROUP_SIZE}
+    -D HIPRT_SHARED_STACK_SIZE=${SHARED_STACK_SIZE}
+    -D HIPRT_THREAD_STACK_SIZE=${THREAD_STACK_SIZE}
+    -D HIPRT_GLOBAL_STACK_SIZE=${GLOBAL_STACK_SIZE}
+    -std=c++17
+    -fgpu-rdc
+    -c
+    --gpu-bundle-output
+    -emit-llvm
+    -I ${CMAKE_CURRENT_SOURCE_DIR}/..
+    -I ${CMAKE_CURRENT_SOURCE_DIR}/device/hiprt
+    -Wno-parentheses-equality
+    -Wno-unused-value
+    --hipcc-func-supp
+    -ffast-math
+    -o ${bitcode_file})
 
-	add_custom_command(
-	OUTPUT  ${bitcode_file}
-	COMMAND ${hiprt_compile_command} ${hiprt_compile_flags}
-	DEPENDS ${kernel_sources})
+  if(WITH_CYCLES_DEBUG)
+    set(hiprt_compile_flags ${hiprt_compile_flags} -D WITH_CYCLES_DEBUG)
+  endif()
 
-	if(WIN32)
-	set(hiprt_link_command ${CMAKE_COMMAND})
-	set(hiprt_link_flags   -E env "HIP_PATH=${HIP_ROOT_DIR}"
-    clang++)
-	set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}/hiprt${hiprt_ver}_amd_lib_win.bc)
-	else()
-	# not implemented yet
-	endif()
+  set(hiprt_ver 02000)
 
-	set(hiprt_link_flags
-	${hiprt_link_flags}
-	${target_gpus}
-	-fgpu-rdc 
-	--hip-link 
-	--cuda-device-only
-	${bitcode_file}
-	${hiprt_bitcode}
-	-o ${hiprt_file})
+  add_custom_command(
+    OUTPUT  ${bitcode_file}
+    COMMAND ${hiprt_compile_command} ${hiprt_compile_flags}
+    DEPENDS ${kernel_sources})
 
-  #cmake_print_variables(${hiprt_link_flags})
+  if(WIN32)
+    set(hiprt_link_command ${CMAKE_COMMAND})
+    set(hiprt_link_flags   -E env "HIP_PATH=${HIP_ROOT_DIR}"
+      clang++)
+    set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}\hiprt${hiprt_ver}_amd_lib_win.bc)
+  else()
+    # not implemented yet
+  endif()
 
-	add_custom_command(
-	OUTPUT  ${hiprt_file}
-	COMMAND ${hiprt_link_command} ${hiprt_link_flags}
-	DEPENDS ${bitcode_file})
-	delayed_install("${CMAKE_CURRENT_BINARY_DIR}" "${hiprt_file}" ${CYCLES_INSTALL_PATH}/lib)
+  set(hiprt_link_flags
+    ${hiprt_link_flags}
+    ${target_gpus}
+    -fgpu-rdc
+    --hip-link
+    --cuda-device-only
+    ${bitcode_file}
+    ${hiprt_bitcode}
+    -o ${hiprt_file})
+
+  add_custom_command(
+    OUTPUT  ${hiprt_file}
+    COMMAND ${hiprt_link_command} ${hiprt_link_flags}
+    DEPENDS ${bitcode_file})
+  delayed_install("${CMAKE_CURRENT_BINARY_DIR}" "${hiprt_file}" ${CYCLES_INSTALL_PATH}/lib)
 
   add_custom_target(cycles_kernel_hiprt ALL DEPENDS ${hiprt_file})
   cycles_set_solution_folder(cycles_kernel_hiprt)

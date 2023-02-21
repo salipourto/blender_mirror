@@ -1257,18 +1257,9 @@ elseif(WIN32)
   endif()
 
   if(WITH_CYCLES_DEVICE_HIPRT)
-  set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
-  target_link_libraries(blender ${HIPRTSDK}/hiprt0200064.lib)
-    if(NOT WITH_CYCLES_HIPRT_BINARIES)
-      install(
-        FILES
-        ${HIPRTSDK}/hiprt0200064.dll
-        ${HIPRTSDK}/hiprtc0504.dll
-        ${HIPRTSDK}/hiprtc-builtins0504.dll
-        ${HIPRTSDK}/amd_comgr0504.dll
-        DESTINATION ${TARGETDIR_LIB}
-      )
-    endif()
+    set (HIPRTSDK $ENV{HIPRT_SDK_DIR})
+	#Do not use environment variables for this, these kinds of paths should be specified through cmake options.
+    target_link_libraries(blender ${HIPRTSDK}/hiprt0200064.lib)
   endif()
 
   if(WITH_BLENDER_THUMBNAILER)

@@ -46,9 +46,9 @@ struct ccl_try_align(16) int3
 
 ccl_device_inline int3 make_int3(int x, int y, int z);
 #endif /* __KERNEL_NATIVE_VECTOR_TYPES__ */
-#if !defined(__HIPCC_RTC__)
+
 ccl_device_inline int3 make_int3(int i);
-#endif
+
 ccl_device_inline void print_int3(ccl_private const char *label, const int3 a);
 
 CCL_NAMESPACE_END

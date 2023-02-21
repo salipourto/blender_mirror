@@ -35,8 +35,10 @@ const char *bvh_layout_name(BVHLayout layout)
       return "HIPRT";
     case BVH_LAYOUT_MULTI_OPTIX:
     case BVH_LAYOUT_MULTI_METAL:
+    case BVH_LAYOUT_MULTI_HIPRT:
     case BVH_LAYOUT_MULTI_OPTIX_EMBREE:
     case BVH_LAYOUT_MULTI_METAL_EMBREE:
+    case BVH_LAYOUT_MULTI_HIPRT_EMBREE:
       return "MULTI";
     case BVH_LAYOUT_ALL:
       return "ALL";
@@ -114,8 +116,10 @@ BVH *BVH::create(const BVHParams &params,
 #endif
     case BVH_LAYOUT_MULTI_OPTIX:
     case BVH_LAYOUT_MULTI_METAL:
+    case BVH_LAYOUT_MULTI_HIPRT:
     case BVH_LAYOUT_MULTI_OPTIX_EMBREE:
     case BVH_LAYOUT_MULTI_METAL_EMBREE:
+    case BVH_LAYOUT_MULTI_HIPRT_EMBREE:
       return new BVHMulti(params, geometry, objects);
     case BVH_LAYOUT_NONE:
     case BVH_LAYOUT_ALL:

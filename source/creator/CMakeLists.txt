@@ -89,10 +89,6 @@ if(WITH_SDL)
   add_definitions(-DWITH_SDL)
 endif()
 
-if(WITH_CYCLES_DEVICE_HIPRT)
-  add_definitions(-DWITH_HIPRT)
-endif()
-
 if(WITH_BINRELOC)
   list(APPEND INC ${BINRELOC_INCLUDE_DIRS})
   add_definitions(-DWITH_BINRELOC)

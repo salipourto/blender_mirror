@@ -38,6 +38,7 @@ typedef hiprtGlobalStack Stack;
 #else
 #  define HIPRT_SET_SHARED_MEMORY() KernelGlobals kg = NULL;
 #endif
+
 struct KernelParamsHIPRT {
   KernelData data;
 #define KERNEL_DATA_ARRAY(type, name) const type *name;
@@ -51,20 +52,18 @@ struct KernelParamsHIPRT {
 
   /* Integrator state */
   IntegratorStateGPU integrator_state;
+
+  hiprtFuncTable __table_closest_intersect;
+  hiprtFuncTable __table_shadow_intersect;
+  hiprtFuncTable __table_local_intersect;
+  hiprtFuncTable __table_volume_intersect;
+
 };
 
 #ifdef __KERNEL_GPU__
 __constant__ KernelParamsHIPRT kernel_params;
-#  if defined(__HIPRT__)
-__attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
-__attribute__((used)) __attribute__((constant)) __attribute__((device))
-hiprtFuncTable __table_closest_intersect;
-__attribute__((used)) __attribute__((constant)) __attribute__((device))
-hiprtFuncTable __table_shadow_intersect;
-__attribute__((used)) __attribute__((constant)) __attribute__((device))
-hiprtFuncTable __table_local_intersect;
-__attribute__((used)) __attribute__((constant)) __attribute__((device))
-hiprtFuncTable __table_volume_intersect;
+ #if defined (__HIPRT__)
+  __attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
 #  endif
 #endif
 

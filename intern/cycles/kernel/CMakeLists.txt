@@ -725,7 +725,7 @@ if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
     set(hiprt_link_command ${CMAKE_COMMAND})
     set(hiprt_link_flags   -E env "HIP_PATH=${HIP_ROOT_DIR}"
       clang++)
-    set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}\hiprt${hiprt_ver}_amd_lib_win.bc)
+    set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}/hiprt${hiprt_ver}_amd_lib_win.bc)
   else()
     # not implemented yet
   endif()

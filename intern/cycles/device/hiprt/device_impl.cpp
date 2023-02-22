@@ -1044,20 +1044,27 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
     prim_time_offset.copy_to_device();
   }
 
+  size_t table_ptr_size = 0;
+  device_ptr table_device_ptr;
+
+  hip_assert(hipModuleGetGlobal(&table_device_ptr, &table_ptr_size, hipModule, "kernel_params"));
+
   const char *tables[] = {"__table_closest_intersect",
                           "__table_shadow_intersect",
                           "__table_local_intersect",
                           "__table_volume_intersect"};
 
-  for (int table_index = 0; table_index < Max_Intersect_Filter_Function;
-       table_index++) {
+  size_t kernel_param_offset[4];
+  int table_index = 0;
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_closest_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_shadow_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_local_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_volume_intersect);
+  table_ptr_size = 8;
+  for (int index = 0; index < table_index; index++) {
 
-    size_t table_ptr_size = 0;
-    device_ptr table_device_ptr;
-
-    hip_assert(
-        hipModuleGetGlobal(&table_device_ptr, &table_ptr_size, hipModule, tables[table_index]));
-    hip_assert(hipMemcpyHtoD(table_device_ptr, &functions_table, table_ptr_size));
+    hip_assert(hipMemcpyHtoD(
+        table_device_ptr + kernel_param_offset[index], &functions_table, table_ptr_size));
   }
 
   return scene;

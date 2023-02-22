@@ -58,7 +58,7 @@ struct LocalPayload {
                                                             visibility, \
                                                             hiprtTraversalHintDefault, \
                                                             &payload, \
-                                                            FUNCTION_TABLE, \
+                                                            kernel_params.FUNCTION_TABLE, \
                                                             RAY_TYPE); \
       hiprtSceneTraversalAnyHitCustomStack<Stack> traversal_simple( \
           kernel_data.device_bvh, ray_hip, stack, visibility);
@@ -69,7 +69,7 @@ struct LocalPayload {
                                                              visibility, \
                                                              hiprtTraversalHintDefault, \
                                                              &payload, \
-                                                             FUNCTION_TABLE, \
+                                                             kernel_params.FUNCTION_TABLE, \
                                                              RAY_TYPE); \
       hiprtSceneTraversalClosestCustomStack<Stack> traversal_simple( \
           kernel_data.device_bvh, ray_hip, stack, visibility);

@@ -11,7 +11,6 @@
 #  include "device/hiprt/queue.h"
 #  include "hiprt/hiprt.h"
 
-#  define HIPRT_INTERSECTION_FILTERS
 
 #  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
 #  define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread

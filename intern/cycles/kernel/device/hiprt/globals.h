@@ -53,10 +53,10 @@ struct KernelParamsHIPRT {
   /* Integrator state */
   IntegratorStateGPU integrator_state;
 
-  hiprtFuncTable __table_closest_intersect;
-  hiprtFuncTable __table_shadow_intersect;
-  hiprtFuncTable __table_local_intersect;
-  hiprtFuncTable __table_volume_intersect;
+  hiprtFuncTable table_closest_intersect;
+  hiprtFuncTable table_shadow_intersect;
+  hiprtFuncTable table_local_intersect;
+  hiprtFuncTable table_volume_intersect;
 
 };
 

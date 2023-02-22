@@ -96,9 +96,6 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
 
   if (use_lds)
     cflags += " -D HIPRT_SHARED_STACK ";
-#  ifdef HIPRT_INTERSECTION_FILTERS
-  cflags += " -D HIPRT_INTERSECTION_FILTERS ";
-#  endif
 
   return cflags;
 }
@@ -278,9 +275,6 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
       rtc_options.append(" -DHIPRT_SHARED_STACK");
     }
 
-#  ifdef HIPRT_INTERSECTION_FILTERS
-    rtc_options.append(" -DHIPRT_INTERSECTION_FILTERS");
-#  endif
 
     rtc_options.append(" -D __HIPRT__");
     rtc_options.append(" -ffast-math");
@@ -1049,22 +1043,18 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
 
   hip_assert(hipModuleGetGlobal(&table_device_ptr, &table_ptr_size, hipModule, "kernel_params"));
 
-  const char *tables[] = {"__table_closest_intersect",
-                          "__table_shadow_intersect",
-                          "__table_local_intersect",
-                          "__table_volume_intersect"};
 
   size_t kernel_param_offset[4];
   int table_index = 0;
-  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_closest_intersect);
-  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_shadow_intersect);
-  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_local_intersect);
-  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, __table_volume_intersect);
-  table_ptr_size = 8;
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, table_closest_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, table_shadow_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, table_local_intersect);
+  kernel_param_offset[table_index++] = offsetof(KernelParamsHIPRT, table_volume_intersect);
+
   for (int index = 0; index < table_index; index++) {
 
     hip_assert(hipMemcpyHtoD(
-        table_device_ptr + kernel_param_offset[index], &functions_table, table_ptr_size));
+        table_device_ptr + kernel_param_offset[index], &functions_table, sizeof(device_ptr)));
   }
 
   return scene;

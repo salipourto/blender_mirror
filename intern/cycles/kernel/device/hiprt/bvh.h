@@ -44,45 +44,12 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
 
   GET_TRAVERSAL_STACK()
 
-#ifndef HIPRT_INTERSECTION_FILTERS
-  GET_TRAVERSAL_ANY_HIT(__table_closest_intersect, 0)
-  hit = traversal.getNextHit();
-  bool b_hit = false;
-
-  while (hit.hasHit()) {
-    int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
-    int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
-    int prim = hit.primID + prim_offset;
-    if (!intersection_skip_self_shadow(ray->self, object_id, prim)) {
-      if (visibility & PATH_RAY_SHADOW_OPAQUE) {
-        set_intersect_point(kg, hit, isect);
-        if (isect->type & PRIMITIVE_CURVE) {
-          isect->prim = hit.primID;
-          isect->type = payload.prim_type;
-        }
-        return true;
-      }
-      else if (isect->t >= hit.t) {
-        b_hit = true;
-        set_intersect_point(kg, hit, isect);
-        if (isect->type & PRIMITIVE_CURVE) {
-          isect->type = payload.prim_type;
-		  isect->prim = hit.primID;
-        }
-      }
-    }
-    if (hiprtTraversalStateStackOverflow == traversal.getCurrentState())
-      break;
-    hit = traversal.getNextHit();
-  }
-  return b_hit;
-#else
   if (visibility & PATH_RAY_SHADOW_OPAQUE) {
-    GET_TRAVERSAL_ANY_HIT(__table_closest_intersect, 0)
+    GET_TRAVERSAL_ANY_HIT(table_closest_intersect, 0)
     hit = traversal.getNextHit();
   }
   else {
-    GET_TRAVERSAL_CLOSEST_HIT(__table_closest_intersect, 0)
+    GET_TRAVERSAL_CLOSEST_HIT(table_closest_intersect, 0)
     hit = traversal.getNextHit();
   }
   if (hit.hasHit()) {
@@ -94,7 +61,6 @@ ccl_device_intersect bool scene_intersect(KernelGlobals kg,
     return true;
   }
   return false;
-#endif
 }
 
 #ifdef __BVH_LOCAL__
@@ -149,29 +115,9 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
 
   void *local_geom = (void *)(kernel_data_fetch(blas_ptr, local_object));
   // we don't need custom intersection functions for SSR
-#  ifndef HIPRT_INTERSECTION_FILTERS
-#    if defined(HIPRT_SHARED_STACK)
-  hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(local_geom, ray_hip, stack);
-#    else
-  hiprtGeomTraversalAnyHit traversal(local_geom, ray_hip);
-#    endif
-
-  bool get_next = true;
-  hiprtHit hit = {0};
-  while (get_next) {
-    hit = traversal.getNextHit();
-    if (!hit.hasHit() || (hiprtTraversalStateStackOverflow == traversal.getCurrentState()))
-      return payload.is_hit;
-
-    get_next = local_intersection_filter(ray_hip, 0, &payload, hit);
-  }
-  return payload.is_hit;
-
-#  else
-
 #    ifdef HIPRT_SHARED_STACK
   hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(
-      local_geom, ray_hip, stack, hiprtTraversalHintDefault, &payload, kernel_params.__table_local_intersect, 2);
+      local_geom, ray_hip, stack, hiprtTraversalHintDefault, &payload, kernel_params.table_local_intersect, 2);
 #    else
   hiprtGeomTraversalAnyHit traversal(
       local_geom, ray_hip, table, hiprtTraversalHintDefault, &payload);
@@ -179,7 +125,7 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
   hiprtHit hit = traversal.getNextHit();
   return hit.hasHit();
 
-#  endif
+
 }
 #endif  //__BVH_LOCAL__
 
@@ -215,7 +161,7 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals kg,
   payload.r_num_recorded_hits = num_recorded_hits;
   payload.r_throughput = throughput;
   GET_TRAVERSAL_STACK()
-  GET_TRAVERSAL_ANY_HIT(__table_shadow_intersect, 1)
+  GET_TRAVERSAL_ANY_HIT(table_shadow_intersect, 1)
   hiprtHit hit = traversal.getNextHit();
   num_recorded_hits = payload.r_num_recorded_hits;
   throughput = payload.r_throughput;
@@ -254,33 +200,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
 
   GET_TRAVERSAL_STACK()
 
-#  ifndef HIPRT_INTERSECTION_FILTERS
-  GET_TRAVERSAL_ANY_HIT(__table_volume_intersect,
-                        3)  // no custom intersection for volume rendering
-  hiprtHit hit = traversal_simple.getNextHit();
-
-  bool b_hit = false;
-
-  while (hit.hasHit()) {
-    int object_id = kernel_data_fetch(user_instance_id, hit.instanceID);
-    int object_flag = kernel_data_fetch(object_flag, object_id);
-    int prim_offset = kernel_data_fetch(object_prim_offset, object_id);
-    int prim_id = hit.primID + prim_offset;
-
-    if (object_flag & SD_OBJECT_HAS_VOLUME) {
-      if (!intersection_skip_self(ray->self, object_id, prim_id)) {
-        if (isect->t >= hit.t) {
-          b_hit = true;
-          set_intersect_point(kg, hit, isect);
-        }
-      }
-    }
-
-    hit = traversal_simple.getNextHit();
-  }
-  return b_hit;
-#  else  // HIPRT_CUSTOM_FUNC
-  GET_TRAVERSAL_CLOSEST_HIT(__table_volume_intersect, 3)
+  GET_TRAVERSAL_CLOSEST_HIT(table_volume_intersect, 3)
   hiprtHit hit = traversal.getNextHit();
   // return hit.hasHit();
   if (hit.hasHit()) {
@@ -293,7 +213,7 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
   }
   else
     return false;
-#  endif
+
 }
 #endif /* __VOLUME__ */
 

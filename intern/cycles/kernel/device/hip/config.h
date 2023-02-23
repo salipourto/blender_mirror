@@ -20,8 +20,8 @@
 #define GPU_KERNEL_BLOCK_NUM_THREADS 1024
 #define GPU_KERNEL_MAX_REGISTERS 64
 
-//for performance tuning of hiprt kernels we might have to change the number
-//that's why we don't use GPU_KERNEL_BLOCK_NUM_THREADS
+// for performance tuning of hiprt kernels we might have to change the number
+// that's why we don't use GPU_KERNEL_BLOCK_NUM_THREADS
 #define GPU_HIPRT_KERNEL_BLOCK_NUM_THREADS 1024
 
 /* Compute number of threads per block and minimum blocks per multiprocessor

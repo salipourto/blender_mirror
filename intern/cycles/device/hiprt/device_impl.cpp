@@ -97,7 +97,7 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
 bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 {
 
-    static const char *filter_functions[] = {
+  static const char *filter_functions[] = {
       "opaque_intersection_filter",
       "shadow_intersection_filter",
       "local_intersection_filter",
@@ -111,7 +111,7 @@ bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
 
   //"motion_triangle_custom_local_intersect", "motion_triangle_custom_volume_intersect"
 
-    for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
+  for (int filter_function = 0; filter_function < Max_Intersect_Filter_Function;
        filter_function++) {
     for (int prim = 0; prim < Max_Primitive_Type; prim++) {
       int table_index = prim + filter_function * Max_Intersect_Filter_Function;
@@ -130,10 +130,8 @@ bool HIPRTDevice::set_function_table(hiprtFuncNameSet *func_name_set)
   }
 
   hiprtFuncDataSet func_data_set;
-  hiprtError result = hiprtCreateFuncTable(hiprt_context,
-                                           Max_Primitive_Type,
-                                           Max_Intersect_Filter_Function,
-                                           &functions_table);
+  hiprtError result = hiprtCreateFuncTable(
+      hiprt_context, Max_Primitive_Type, Max_Intersect_Filter_Function, &functions_table);
   if (result == 0)
     result = hiprtSetFuncTable(hiprt_context,
                                functions_table,
@@ -158,12 +156,10 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
     arch = props.gcnArchName;
   }
 
-  hiprtFuncNameSet func_name_sets[Max_Primitive_Type *
-                                  Max_Intersect_Filter_Function];
+  hiprtFuncNameSet func_name_sets[Max_Primitive_Type * Max_Intersect_Filter_Function];
 
   if (!set_function_table(func_name_sets))
     return string();
-
 
   if (!use_adaptive_compilation()) {
     const string fatbin = path_get(string_printf("lib/%s_rt_gfx.hipfb", name));
@@ -183,7 +179,8 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   const string include_path = source_path;
   const string bitcode_file = string_printf("cycles_%s_%s_%s.bc", name, arch, kernel_md5.c_str());
   const string bitcode = path_cache_get(path_join("kernels", bitcode_file));
-  const string fatbin_file = string_printf("cycles_%s_%s_%s.hipfb", name, arch, kernel_md5.c_str());
+  const string fatbin_file = string_printf(
+      "cycles_%s_%s_%s.hipfb", name, arch, kernel_md5.c_str());
   const string fatbin = path_cache_get(path_join("kernels", fatbin_file));
 
   VLOG(1) << "Testing for locally compiled kernel " << fatbin << ".";
@@ -212,8 +209,7 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   }
 #  endif
 
-
-   const char *const hipcc = hipewCompilerPath();
+  const char *const hipcc = hipewCompilerPath();
   if (hipcc == NULL) {
     set_error(
         "HIP hipcc compiler not found. "
@@ -282,10 +278,10 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
   hiprt_bc = "hiprt" + hiprt_ver + "_amd_lib_win.bc";
 
   string linker_command = string_printf("clang %s \"%s\" %s -o \"%s\"",
-                                             linker_options.c_str(),
-                                             bitcode.c_str(),
-                                             hiprt_bc.c_str(),
-                                             fatbin.c_str());
+                                        linker_options.c_str(),
+                                        bitcode.c_str(),
+                                        hiprt_bc.c_str(),
+                                        fatbin.c_str());
 
 #  ifdef _WIN32
   linker_command = "call " + linker_command;
@@ -296,7 +292,6 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
         "see console for details.");
     return string();
   }
-
 
   printf("Kernel compilation finished in %.2lfs.\n", time_dt() - starttime);
 
@@ -538,9 +533,8 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
         current_keys[3] = curve_keys[min(first_key + k + 2, first_key + curve.num_keys - 1)];
 
         if (current_keys[0].x == current_keys[1].x && current_keys[1].x == current_keys[2].x &&
-            current_keys[2].x == current_keys[3].x &&
-            current_keys[0].y == current_keys[1].y && current_keys[1].y == current_keys[2].y &&
-            current_keys[2].y == current_keys[3].y &&
+            current_keys[2].x == current_keys[3].x && current_keys[0].y == current_keys[1].y &&
+            current_keys[1].y == current_keys[2].y && current_keys[2].y == current_keys[3].y &&
             current_keys[0].z == current_keys[1].z && current_keys[1].z == current_keys[2].z &&
             current_keys[2].z == current_keys[3].z)
           continue;
@@ -551,7 +545,7 @@ hiprtGeometryBuildInput HIPRTDevice::prepare_curve_blas(BVHHIPRT *bvh, Hair *hai
           int type = PRIMITIVE_PACK_SEGMENT(primitive_type, k);
           bvh->custom_prim_info[num_bounds].x = j;
           bvh->custom_prim_info[num_bounds].y = type;
-            bvh->custom_primitive_bound[num_bounds] = bounds;
+          bvh->custom_primitive_bound[num_bounds] = bounds;
           num_bounds++;
         }
       }
@@ -936,7 +930,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   scene_input_ptr.frameCount = frame_count;
   scene_input_ptr.frameType = hiprtFrameTypeMatrix;
 
-
   user_instance_id.copy_to_device();
   visibility.copy_to_device();
   hiprt_blas_ptr.copy_to_device();
@@ -1009,7 +1002,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
   device_ptr table_device_ptr;
 
   hip_assert(hipModuleGetGlobal(&table_device_ptr, &table_ptr_size, hipModule, "kernel_params"));
-
 
   size_t kernel_param_offset[4];
   int table_index = 0;

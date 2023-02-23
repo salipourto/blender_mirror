@@ -9,7 +9,6 @@
 #  include "device/hip/kernel.h"
 #  include "device/hiprt/device_impl.h"
 
-
 CCL_NAMESPACE_BEGIN
 
 HIPRTDeviceQueue::HIPRTDeviceQueue(HIPRTDevice *device)

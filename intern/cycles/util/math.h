@@ -14,7 +14,7 @@
 #endif
 
 #ifdef __HIP__
-#    include <hip/hip_vector_types.h>
+#  include <hip/hip_vector_types.h>
 #endif
 
 #if !defined(__KERNEL_METAL__)

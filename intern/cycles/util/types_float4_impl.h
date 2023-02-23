@@ -72,7 +72,6 @@ ccl_device_inline float4 make_float4(float f)
 #endif
 }
 
-
 ccl_device_inline float4 make_float4(const int4 i)
 {
 #ifdef __KERNEL_SSE__

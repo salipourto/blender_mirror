@@ -1,7 +1,7 @@
 #pragma once
 
-#if ( defined( __CUDACC__ ) || defined( __HIPCC__ ) )
-#define __KERNELCC__
+#if (defined(__CUDACC__) || defined(__HIPCC__))
+#  define __KERNELCC__
 #endif
 
 #include "kernel/device/hiprt/hiprt_common.h"
@@ -12,29 +12,28 @@ struct _hiprtGeometryCustom;
 struct _hiprtScene;
 struct _hiprtContext;
 struct _hiprtFuncTable;
-	
-typedef void*			 hiprtDevicePtr;
-typedef hiprtDevicePtr	 hiprtGeometry;
-typedef hiprtDevicePtr	 hiprtScene;
-typedef u32				 hiprtBuildFlags;
-typedef u32				 hiprtRayMask;
-typedef _hiprtContext*	 hiprtContext;
-typedef _hiprtFuncTable* hiprtFuncTable;
 
-typedef int	  hiprtApiDevice;	// hipDevice, cuDevice
-typedef void* hiprtApiCtx;		// hipCtx, cuCtx
-typedef void* hiprtApiStream;	// hipStream, cuStream
-typedef void* hiprtApiFunction; // hipFunction, cuFunction
+typedef void *hiprtDevicePtr;
+typedef hiprtDevicePtr hiprtGeometry;
+typedef hiprtDevicePtr hiprtScene;
+typedef u32 hiprtBuildFlags;
+typedef u32 hiprtRayMask;
+typedef _hiprtContext *hiprtContext;
+typedef _hiprtFuncTable *hiprtFuncTable;
+
+typedef int hiprtApiDevice;      // hipDevice, cuDevice
+typedef void *hiprtApiCtx;       // hipCtx, cuCtx
+typedef void *hiprtApiStream;    // hipStream, cuStream
+typedef void *hiprtApiFunction;  // hipFunction, cuFunction
 
 /** \brief Ray traversal type.
  *
  */
-enum hiprtTraversalType
-{
-	/*!< 0 or 1 element iterator with any hit along the ray */
-	hiprtTraversalTerminateAtAnyHit = 1,
-	/*!< 0 or 1 element iterator with a closest hit along the ray */
-	hiprtTraversalTerminateAtClosestHit = 2,
+enum hiprtTraversalType {
+  /*!< 0 or 1 element iterator with any hit along the ray */
+  hiprtTraversalTerminateAtAnyHit = 1,
+  /*!< 0 or 1 element iterator with a closest hit along the ray */
+  hiprtTraversalTerminateAtClosestHit = 2,
 };
 
 /** \brief Traversal state.
@@ -42,12 +41,11 @@ enum hiprtTraversalType
  * On-device traversal can be in either hit state (and can be continued using
  * hiprtNextHit) or finished state.
  */
-enum hiprtTraversalState
-{
-	hiprtTraversalStateInit,
-	hiprtTraversalStateFinished,
-	hiprtTraversalStateHit,
-	hiprtTraversalStateStackOverflow
+enum hiprtTraversalState {
+  hiprtTraversalStateInit,
+  hiprtTraversalStateFinished,
+  hiprtTraversalStateHit,
+  hiprtTraversalStateStackOverflow
 };
 
 /** \brief Traversal hint.
@@ -55,34 +53,31 @@ enum hiprtTraversalState
  * An additional information about the rays for the traversal object.
  * It is taken into account only on AMD Navi3x (RDNA3) and above.
  */
-enum hiprtTraversalHint
-{
-	hiprtTraversalHintDefault		 = 0,
-	hiprtTraversalHintShadowRays	 = 1,
-	hiprtTraversalHintReflectionRays = 2
+enum hiprtTraversalHint {
+  hiprtTraversalHintDefault = 0,
+  hiprtTraversalHintShadowRays = 1,
+  hiprtTraversalHintReflectionRays = 2
 };
 
 /** \brief Various constants.
  *
  */
-enum : u32
-{
-	hiprtInvalidValue = hiprt::InvalidValue,
-	hiprtFullRayMask  = hiprt::FullRayMask,
+enum : u32 {
+  hiprtInvalidValue = hiprt::InvalidValue,
+  hiprtFullRayMask = hiprt::FullRayMask,
 };
 
 /** \brief Error codes.
  *
  */
-enum hiprtError
-{
-	hiprtSuccess				= 0,
-	hiprtErrorNotImplemented	= 1,
-	hiprtErrorInternal			= 2,
-	hiprtErrorOutOfHostMemory	= 3,
-	hiprtErrorOutOfDeviceMemory = 4,
-	hiprtErrorInvalidApiVersion = 5,
-	hiprtErrorInvalidParameter	= 6
+enum hiprtError {
+  hiprtSuccess = 0,
+  hiprtErrorNotImplemented = 1,
+  hiprtErrorInternal = 2,
+  hiprtErrorOutOfHostMemory = 3,
+  hiprtErrorOutOfDeviceMemory = 4,
+  hiprtErrorInvalidApiVersion = 5,
+  hiprtErrorInvalidParameter = 6
 };
 
 /** \brief Type of geometry/scene build operation.
@@ -90,24 +85,19 @@ enum hiprtError
  * hiprtBuildGeometry/hiprtBuildScene can either build or update
  * an underlying acceleration structure.
  */
-enum hiprtBuildOperation
-{
-	hiprtBuildOperationBuild  = 1,
-	hiprtBuildOperationUpdate = 2
-};
+enum hiprtBuildOperation { hiprtBuildOperationBuild = 1, hiprtBuildOperationUpdate = 2 };
 
 /** \brief Hint flags for geometry/scene build functions.
  *
  * hiprtBuildGeometry/hiprtBuildScene use these flags to choose
  * an appropriate build format/algorithm.
  */
-enum hiprtBuildFlagBits
-{
-	hiprtBuildFlagBitPreferFastBuild		= 0,
-	hiprtBuildFlagBitPreferBalancedBuild	= 1,
-	hiprtBuildFlagBitPreferHighQualityBuild = 2,
-	hiprtBuildFlagBitCustomBvhImport		= 3,
-	hiprtBuildFlagBitDisableSpatialSplits	= 1 << 2
+enum hiprtBuildFlagBits {
+  hiprtBuildFlagBitPreferFastBuild = 0,
+  hiprtBuildFlagBitPreferBalancedBuild = 1,
+  hiprtBuildFlagBitPreferHighQualityBuild = 2,
+  hiprtBuildFlagBitCustomBvhImport = 3,
+  hiprtBuildFlagBitDisableSpatialSplits = 1 << 2
 };
 
 /** \brief Geometric primitive type.
@@ -116,133 +106,115 @@ enum hiprtBuildFlagBits
  * such as triangle meshes, AABB lists, line lists, etc. This enum
  * defines primitive type for hiprtBuildGeometry function.
  */
-enum hiprtPrimitiveType
-{
-	hiprtPrimitiveTypeTriangleMesh,
-	hiprtPrimitiveTypeAABBList
-};
+enum hiprtPrimitiveType { hiprtPrimitiveTypeTriangleMesh, hiprtPrimitiveTypeAABBList };
 
 /** \brief primitve types
  *
  */
-enum hiprtPrimitiveNodeType
-{
-	hiprtTriangleNode = 0,
-	hiprtCustomNode	  = 1
-};
+enum hiprtPrimitiveNodeType { hiprtTriangleNode = 0, hiprtCustomNode = 1 };
 
 /** \brief Transformation frame type.
  *
  */
-enum hiprtFrameType
-{
-	hiprtFrameTypeSRT,
-	hiprtFrameTypeMatrix
-};
+enum hiprtFrameType { hiprtFrameTypeSRT, hiprtFrameTypeMatrix };
 
 /** \brief Bvh node type.
  *
  */
-enum hiprtBvhNodeType
-{
-	/*!< Leaf node */
-	hiprtBvhNodeTypeInternal = 0,
-	/*!< Internal node */
-	hiprtBvhNodeTypeLeaf = 1,
+enum hiprtBvhNodeType {
+  /*!< Leaf node */
+  hiprtBvhNodeTypeInternal = 0,
+  /*!< Internal node */
+  hiprtBvhNodeTypeLeaf = 1,
 };
 
 /** \brief Ray data structure.
  *
  */
-struct HIPRT_ALIGN( 32 ) hiprtRay
-{
-	/*!< Ray origin */
-	hiprtFloat3 origin;
-	/*!< Ray maximum distance */
-	float minT = 0.0f;
-	/*!< Ray direction */
-	hiprtFloat3 direction;
-	/*!< Ray maximum distance */
-	float maxT = hiprt::FltMax;
+struct HIPRT_ALIGN(32) hiprtRay {
+  /*!< Ray origin */
+  hiprtFloat3 origin;
+  /*!< Ray maximum distance */
+  float minT = 0.0f;
+  /*!< Ray direction */
+  hiprtFloat3 direction;
+  /*!< Ray maximum distance */
+  float maxT = hiprt::FltMax;
 };
-static_assert( sizeof( hiprtRay ) == 32 );
+static_assert(sizeof(hiprtRay) == 32);
 
 /** \brief Ray hit data structure.
  *
  */
-struct HIPRT_ALIGN( 32 ) hiprtHit
-{
-	/*!< Instance ID */
-	u32 instanceID = hiprtInvalidValue;
-	/*!< Primitive ID */
-	u32 primID = hiprtInvalidValue;
-	/*!< Texture coordinates */
-	hiprtFloat2 uv;
-	/*!< Geeometric normal (not normalized) */
-	hiprtFloat3 normal;
-	/*!< Distance */
-	float t = -1.0f;
+struct HIPRT_ALIGN(32) hiprtHit {
+  /*!< Instance ID */
+  u32 instanceID = hiprtInvalidValue;
+  /*!< Primitive ID */
+  u32 primID = hiprtInvalidValue;
+  /*!< Texture coordinates */
+  hiprtFloat2 uv;
+  /*!< Geeometric normal (not normalized) */
+  hiprtFloat3 normal;
+  /*!< Distance */
+  float t = -1.0f;
 
-	HIPRT_DEVICE bool hasHit() const { return primID != hiprtInvalidValue; }
+  HIPRT_DEVICE bool hasHit() const
+  {
+    return primID != hiprtInvalidValue;
+  }
 };
-static_assert( sizeof( hiprtHit ) == 32 );
+static_assert(sizeof(hiprtHit) == 32);
 
 /** \brief Set of device data pointers for custom functions.
  *
  */
-struct hiprtFuncDataSet
-{
-	const void* intersectFuncData = nullptr;
-	const void* filterFuncData	  = nullptr;
+struct hiprtFuncDataSet {
+  const void *intersectFuncData = nullptr;
+  const void *filterFuncData = nullptr;
 };
 
-struct hiprtFuncTableHeader
-{
-	u32			 numGeomTypes;
-	u32			 numRayTypes;
-	hiprtFuncDataSet* funcDataSets;
+struct hiprtFuncTableHeader {
+  u32 numGeomTypes;
+  u32 numRayTypes;
+  hiprtFuncDataSet *funcDataSets;
 };
 
 /** \brief Set of custom function names.
  *
  */
-struct hiprtFuncNameSet
-{
-	const char* intersectFuncName = nullptr;
-	const char* filterFuncName	  = nullptr;
+struct hiprtFuncNameSet {
+  const char *intersectFuncName = nullptr;
+  const char *filterFuncName = nullptr;
 };
 
 /** \brief Device type.
  *
  */
-enum hiprtDeviceType
-{
-	/*!< AMD device */
-	hiprtDeviceAMD,
-	/*!< Nvidia device */
-	hiprtDeviceNVIDIA,
+enum hiprtDeviceType {
+  /*!< AMD device */
+  hiprtDeviceAMD,
+  /*!< Nvidia device */
+  hiprtDeviceNVIDIA,
 };
 
 /** \brief Context creation input.
  *
  */
-struct hiprtContextCreationInput
-{
-	/*!< HIPRT API context */
-	hiprtApiCtx ctxt;
-	/*!< HIPRT API device */
-	hiprtApiDevice device;
-	/*!< HIPRT API device type */
-	hiprtDeviceType deviceType;
+struct hiprtContextCreationInput {
+  /*!< HIPRT API context */
+  hiprtApiCtx ctxt;
+  /*!< HIPRT API device */
+  hiprtApiDevice device;
+  /*!< HIPRT API device type */
+  hiprtDeviceType deviceType;
 };
 
 /** \brief Various flags controlling scene/geometry build process.
  *
  */
-struct hiprtBuildOptions
-{
-	/*!< Build flags */
-	hiprtBuildFlags buildFlags;
+struct hiprtBuildOptions {
+  /*!< Build flags */
+  hiprtBuildFlags buildFlags;
 };
 
 /** \brief Triangle mesh primitive.
@@ -252,21 +224,20 @@ struct hiprtBuildOptions
  * Each vertex has to have 3 components: (x, y, z) coordinates.
  * Indices are organized into triples (i0, i1, i2) - one for each triangle.
  */
-struct hiprtTriangleMeshPrimitive
-{
-	/*!< Device pointer to vertex data */
-	hiprtDevicePtr vertices;
-	/*!< Number of vertices in vertex array */
-	u32 vertexCount;
-	/*!< Stride in bytes between two vertices */
-	u32 vertexStride;
+struct hiprtTriangleMeshPrimitive {
+  /*!< Device pointer to vertex data */
+  hiprtDevicePtr vertices;
+  /*!< Number of vertices in vertex array */
+  u32 vertexCount;
+  /*!< Stride in bytes between two vertices */
+  u32 vertexStride;
 
-	/*!< Device pointer to index data */
-	hiprtDevicePtr triangleIndices;
-	/*!< Number of trinagles in index array */
-	u32 triangleCount;
-	/*!< Stride in bytes between two triangles */
-	u32 triangleStride;
+  /*!< Device pointer to index data */
+  hiprtDevicePtr triangleIndices;
+  /*!< Number of trinagles in index array */
+  u32 triangleCount;
+  /*!< Stride in bytes between two triangles */
+  u32 triangleStride;
 };
 
 /** \brief AABB list primitive.
@@ -275,41 +246,38 @@ struct hiprtTriangleMeshPrimitive
  * by device memory pointer and stride between two consequetive boxes.
  * Each AABB is a pair of float3 or float4 values.
  */
-struct hiprtAABBListPrimitive
-{
-	/*!< Device pointer to AABB data */
-	hiprtDevicePtr aabbs;
-	/*!< Number of AABBs in the array */
-	u32 aabbCount;
-	/*!< Stride in bytes between two AABBs (2 * sizeof(float3) or 2 * sizeof(float4)) */
-	u32 aabbStride;
+struct hiprtAABBListPrimitive {
+  /*!< Device pointer to AABB data */
+  hiprtDevicePtr aabbs;
+  /*!< Number of AABBs in the array */
+  u32 aabbCount;
+  /*!< Stride in bytes between two AABBs (2 * sizeof(float3) or 2 * sizeof(float4)) */
+  u32 aabbStride;
 };
 
 /** \brief Bvh node for custom import Bvh.
  *
  */
-struct HIPRT_ALIGN( 64 ) hiprtBvhNode
-{
-	/*!< Child indices (empty slot needs to be marked by hiprtInvalidValue) */
-	u32 childIndices[4];
-	/*!< Child node types */
-	hiprtBvhNodeType childNodeTypes[4];
-	/*!< Node bounding box min */
-	hiprtFloat3 boundingBoxMin;
-	/*!< Node bounding box max */
-	hiprtFloat3 boundingBoxMax;
+struct HIPRT_ALIGN(64) hiprtBvhNode {
+  /*!< Child indices (empty slot needs to be marked by hiprtInvalidValue) */
+  u32 childIndices[4];
+  /*!< Child node types */
+  hiprtBvhNodeType childNodeTypes[4];
+  /*!< Node bounding box min */
+  hiprtFloat3 boundingBoxMin;
+  /*!< Node bounding box max */
+  hiprtFloat3 boundingBoxMax;
 };
-static_assert( sizeof( hiprtBvhNode ) == 64 );
+static_assert(sizeof(hiprtBvhNode) == 64);
 
 /** \brief Bvh node list.
  *
  */
-struct hiprtBvhNodeList
-{
-	/*!< Array of hiprtBvhNode's */
-	hiprtDevicePtr nodes;
-	/*!< Number of nodes */
-	u32 nodeCount;
+struct hiprtBvhNodeList {
+  /*!< Array of hiprtBvhNode's */
+  hiprtDevicePtr nodes;
+  /*!< Number of nodes */
+  u32 nodeCount;
 };
 
 /** \brief Input for geometry build/update operation.
@@ -317,28 +285,24 @@ struct hiprtBvhNodeList
  * Build input defines concrete primitive type and a pointer to an actual
  * primitive description.
  */
-struct hiprtGeometryBuildInput
-{
-	/*!< Primitive type */
-	hiprtPrimitiveType type;
-	/*!< Geometry type used for custom function table */
-	u32 geomType = hiprtInvalidValue;
-	/*!< Defines the following union */
-	union
-	{
-		struct
-		{
-			/*!< Triangle mesh */
-			hiprtTriangleMeshPrimitive* primitive;
-		} triangleMesh;
-		struct
-		{
-			/*!< Bounding boxes of custom primitives */
-			hiprtAABBListPrimitive* primitive;
-		} aabbList;
-	};
-	/*!< Custom Bvh nodes (optional) */
-	hiprtBvhNodeList* nodes;
+struct hiprtGeometryBuildInput {
+  /*!< Primitive type */
+  hiprtPrimitiveType type;
+  /*!< Geometry type used for custom function table */
+  u32 geomType = hiprtInvalidValue;
+  /*!< Defines the following union */
+  union {
+    struct {
+      /*!< Triangle mesh */
+      hiprtTriangleMeshPrimitive *primitive;
+    } triangleMesh;
+    struct {
+      /*!< Bounding boxes of custom primitives */
+      hiprtAABBListPrimitive *primitive;
+    } aabbList;
+  };
+  /*!< Custom Bvh nodes (optional) */
+  hiprtBvhNodeList *nodes;
 };
 
 /** \brief Build input for the scene.
@@ -358,24 +322,24 @@ struct hiprtGeometryBuildInput
  * assumes one frame per instance. Optionally, it is possible to import a custom
  * BVH by setting nodes and the corresponding build flag.
  */
-struct hiprtSceneBuildInput
-{
-	/*!< Array of instanceCount pointers to geometries */
-	hiprtDevicePtr instanceGeometries;
-	/*!< Array of instanceCount transform headers (optional: per object frame assumed if NULL) */
-	hiprtDevicePtr instanceTransformHeaders;
-	/*!< Array of frameCount frames (supposed to be ordered according to time) */
-	hiprtDevicePtr instanceFrames;
-	/*!< Per object bit masks for instance masking (optional: if NULL masks treated as hiprtFullRayMask) */
-	hiprtDevicePtr instanceMasks;
-	/*!< Custom Bvh nodes (optional) */
-	hiprtBvhNodeList* nodes;
-	/*!< Number of instances */
-	u32 instanceCount;
-	/*!< Number of frames (such that instanceCount <= frameCount) */
-	u32 frameCount;
-	/*!< Frame type (SRT or matrix) */
-	hiprtFrameType frameType = hiprtFrameTypeSRT;
+struct hiprtSceneBuildInput {
+  /*!< Array of instanceCount pointers to geometries */
+  hiprtDevicePtr instanceGeometries;
+  /*!< Array of instanceCount transform headers (optional: per object frame assumed if NULL) */
+  hiprtDevicePtr instanceTransformHeaders;
+  /*!< Array of frameCount frames (supposed to be ordered according to time) */
+  hiprtDevicePtr instanceFrames;
+  /*!< Per object bit masks for instance masking (optional: if NULL masks treated as
+   * hiprtFullRayMask) */
+  hiprtDevicePtr instanceMasks;
+  /*!< Custom Bvh nodes (optional) */
+  hiprtBvhNodeList *nodes;
+  /*!< Number of instances */
+  u32 instanceCount;
+  /*!< Number of frames (such that instanceCount <= frameCount) */
+  u32 frameCount;
+  /*!< Frame type (SRT or matrix) */
+  hiprtFrameType frameType = hiprtFrameTypeSRT;
 };
 
 /** \brief SRT transformation frame.
@@ -383,41 +347,38 @@ struct hiprtSceneBuildInput
  * Represented by scale (S), rotation (R), translation (T), and frame time.
  * Object to world transformation is composed as (T * R * S) * x = y
  */
-struct HIPRT_ALIGN( 16 ) hiprtFrameSRT
-{
-	/*!< Rotation (axis and angle) */
-	hiprtFloat4 rotation;
-	/*!< Scale */
-	hiprtFloat3 scale;
-	/*!< Translation */
-	hiprtFloat3 translation;
-	/*!< Frame time */
-	float time;
+struct HIPRT_ALIGN(16) hiprtFrameSRT {
+  /*!< Rotation (axis and angle) */
+  hiprtFloat4 rotation;
+  /*!< Scale */
+  hiprtFloat3 scale;
+  /*!< Translation */
+  hiprtFloat3 translation;
+  /*!< Frame time */
+  float time;
 };
-static_assert( sizeof( hiprtFrameSRT ) == 48 );
+static_assert(sizeof(hiprtFrameSRT) == 48);
 
 /** \brief Transformation matrix frame representation.
  *
  * Represented by a 3x4 matrix and frame time.
  */
-struct HIPRT_ALIGN( 64 ) hiprtFrameMatrix
-{
-	/*!< Matrix */
-	float matrix[3][4];
-	/*!< Frame time */
-	float time;
+struct HIPRT_ALIGN(64) hiprtFrameMatrix {
+  /*!< Matrix */
+  float matrix[3][4];
+  /*!< Frame time */
+  float time;
 };
-static_assert( sizeof( hiprtFrameMatrix ) == 64 );
+static_assert(sizeof(hiprtFrameMatrix) == 64);
 
 /** \brief Transformation header.
  *
  * Defines defines the index to the array of frames and the number of frames.
  */
-struct HIPRT_ALIGN( 8 ) hiprtTransformHeader
-{
-	/*!< Frame index */
-	u32 frameIndex;
-	/*!< Number of frames */
-	u32 frameCount;
+struct HIPRT_ALIGN(8) hiprtTransformHeader {
+  /*!< Frame index */
+  u32 frameIndex;
+  /*!< Number of frames */
+  u32 frameCount;
 };
-static_assert( sizeof( hiprtTransformHeader ) == 8 );
+static_assert(sizeof(hiprtTransformHeader) == 8);

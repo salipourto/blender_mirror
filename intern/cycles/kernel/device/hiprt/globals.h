@@ -13,26 +13,27 @@
 
 #define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
 #define HIPRT_SHARED_STACK_SIZE 24  // LDS (Local Data Storage) allocation for each thread
-#define HIPRT_THREAD_STACK_SIZE 64  // global stack allocation per thread (memory reserved for each thread in global_stack_buffer)
-#define HIPRT_THREAD_GROUP_SIZE 256 // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
+#define HIPRT_THREAD_STACK_SIZE \
+  64  // global stack allocation per thread (memory reserved for each thread in
+      // global_stack_buffer)
+#define HIPRT_THREAD_GROUP_SIZE \
+  256  // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
 
 CCL_NAMESPACE_BEGIN
 
 struct KernelGlobalsGPU {
 
-#  ifdef HIPRT_SHARED_STACK
+#ifdef HIPRT_SHARED_STACK
   int *shared_stack;
-# else
+#else
   int unused[1];
-#  endif
-
+#endif
 };
 typedef ccl_global KernelGlobalsGPU *ccl_restrict KernelGlobals;
 
-
 #if defined(HIPRT_SHARED_STACK)
-//this macro allocate shared memory and to pass the shared memory down to intersection functions
-// KernelGlobals is used 
+// this macro allocate shared memory and to pass the shared memory down to intersection functions
+// KernelGlobals is used
 #  define HIPRT_SET_SHARED_MEMORY() \
     ccl_gpu_shared int shared_stack[HIPRT_SHARED_STACK_SIZE * HIPRT_THREAD_GROUP_SIZE]; \
     ccl_global KernelGlobalsGPU kg_gpu; \
@@ -60,21 +61,21 @@ struct KernelParamsHIPRT {
   hiprtFuncTable table_shadow_intersect;
   hiprtFuncTable table_local_intersect;
   hiprtFuncTable table_volume_intersect;
-
 };
 
 #ifdef __KERNEL_GPU__
-  __constant__ KernelParamsHIPRT kernel_params;
+__constant__ KernelParamsHIPRT kernel_params;
 
-  //global_stack_buffer is defined in global memory and the size is hard coded otherwise it causes instablity
-  //the correct size of global_stack_buffer is (total number of threads) x STACK_SIZE
-  //it is a fallback space for HIPRT traversal if the stack on the local memory overflows
-  //each thread can store up to HIPRT_SHARED_STACK_SIZE elements in local memory and up to HIPRT_THREAD_STACK_SIZE elements in global memory.
+// global_stack_buffer is defined in global memory and the size is hard coded otherwise it causes
+// instablity the correct size of global_stack_buffer is (total number of threads) x STACK_SIZE it
+// is a fallback space for HIPRT traversal if the stack on the local memory overflows each thread
+// can store up to HIPRT_SHARED_STACK_SIZE elements in local memory and up to
+// HIPRT_THREAD_STACK_SIZE elements in global memory.
 
-  __attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
+__attribute__((device)) int global_stack_buffer[HIPRT_GLOBAL_STACK_SIZE];
 
 #  ifdef HIPRT_SHARED_STACK
-  typedef hiprtGlobalStack Stack;
+typedef hiprtGlobalStack Stack;
 #  endif
 
 #endif

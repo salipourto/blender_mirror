@@ -115,17 +115,20 @@ ccl_device_intersect bool scene_intersect_local(KernelGlobals kg,
 
   void *local_geom = (void *)(kernel_data_fetch(blas_ptr, local_object));
   // we don't need custom intersection functions for SSR
-#    ifdef HIPRT_SHARED_STACK
-  hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(
-      local_geom, ray_hip, stack, hiprtTraversalHintDefault, &payload, kernel_params.table_local_intersect, 2);
-#    else
+#  ifdef HIPRT_SHARED_STACK
+  hiprtGeomTraversalAnyHitCustomStack<Stack> traversal(local_geom,
+                                                       ray_hip,
+                                                       stack,
+                                                       hiprtTraversalHintDefault,
+                                                       &payload,
+                                                       kernel_params.table_local_intersect,
+                                                       2);
+#  else
   hiprtGeomTraversalAnyHit traversal(
       local_geom, ray_hip, table, hiprtTraversalHintDefault, &payload);
-#    endif
+#  endif
   hiprtHit hit = traversal.getNextHit();
   return hit.hasHit();
-
-
 }
 #endif  //__BVH_LOCAL__
 
@@ -207,13 +210,12 @@ ccl_device_intersect bool scene_intersect_volume(KernelGlobals kg,
     set_intersect_point(kg, hit, isect);
     if (isect->type > 1) {  // should be applied only for curves
       isect->type = payload.prim_type;
-	  isect->prim = hit.primID;
+      isect->prim = hit.primID;
     }
     return true;
   }
   else
     return false;
-
 }
 #endif /* __VOLUME__ */
 

@@ -130,6 +130,8 @@ ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
       integrator_init_from_bake(nullptr, state, tile, render_buffer, x, y, sample));
 }
 ccl_gpu_kernel_postfix
+// intersection kernels for hiprt are implemented under kernel/device/hiprt/hiprt_kernels.h
+// to handle shared memory allocation and assignment
 #if !defined(__HIPRT__)
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_intersect_closest,
@@ -252,6 +254,8 @@ ccl_gpu_kernel_postfix
 #if defined(__KERNEL_METAL_APPLE__) && defined(__METALRT__)
 constant int __dummy_constant [[function_constant(Kernel_DummyConstant)]];
 #endif
+// intersection kernels for hiprt are implemented under kernel/device/hiprt/hiprt_kernels.h
+// to handle shared memory allocation and assignment
 #if !defined(__HIPRT__)
 ccl_gpu_kernel(GPU_KERNEL_BLOCK_NUM_THREADS, GPU_KERNEL_MAX_REGISTERS)
     ccl_gpu_kernel_signature(integrator_shade_surface_raytrace,

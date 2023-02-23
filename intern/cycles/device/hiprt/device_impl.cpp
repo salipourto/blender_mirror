@@ -25,8 +25,6 @@
 #  include "scene/object.h"
 #  include "scene/pointcloud.h"
 
-#  include "kernel/device/hiprt/globals.h"
-
 CCL_NAMESPACE_BEGIN
 
 class HIPRTDevice;
@@ -37,21 +35,20 @@ BVHLayoutMask HIPRTDevice::get_bvh_layout_mask() const
 }
 
 HIPRTDevice::HIPRTDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
-    : use_lds(true),
-      user_instance_id(this, "user_instance_id", MEM_GLOBAL),
-      visibility(this, "visibility", MEM_READ_ONLY),
-      hiprt_blas_ptr(this, "hiprt_blas_ptr", MEM_READ_WRITE),
-      blas_ptr(this, "blas_ptr", MEM_GLOBAL),
-      instance_transform_matrix(this, "instance_transform_matrix", MEM_READ_ONLY),
-      transform_headers(this, "transform_headers", MEM_READ_ONLY),
-      custom_prim_info_offset(this, "custom_prim_info_offset", MEM_GLOBAL),
-      custom_prim_info(this, "custom_prim_info", MEM_GLOBAL),
-      prim_time_offset(this, "prim_time_offset", MEM_GLOBAL),
-      prims_time(this, "prims_time", MEM_GLOBAL),
+    : HIPDevice(info, stats, profiler),
       hiprt_context(NULL),
       scene(NULL),
       functions_table(NULL),
-      HIPDevice(info, stats, profiler)
+      visibility(this, "visibility", MEM_READ_ONLY),
+      instance_transform_matrix(this, "instance_transform_matrix", MEM_READ_ONLY),
+      transform_headers(this, "transform_headers", MEM_READ_ONLY),
+      user_instance_id(this, "user_instance_id", MEM_GLOBAL),
+      hiprt_blas_ptr(this, "hiprt_blas_ptr", MEM_READ_WRITE),
+      blas_ptr(this, "blas_ptr", MEM_GLOBAL),
+      custom_prim_info(this, "custom_prim_info", MEM_GLOBAL),
+      custom_prim_info_offset(this, "custom_prim_info_offset", MEM_GLOBAL),
+      prims_time(this, "prims_time", MEM_GLOBAL),
+      prim_time_offset(this, "prim_time_offset", MEM_GLOBAL)
 {
   hiprtContextCreationInput hiprt_context_input = {0};
   hiprt_context_input.ctxt = hipContext;
@@ -93,9 +90,6 @@ string HIPRTDevice::compile_kernel_get_common_cflags(const uint kernel_features)
   string cflags = HIPDevice::compile_kernel_get_common_cflags(kernel_features);
 
   cflags += " -D __HIPRT__ ";
-
-  if (use_lds)
-    cflags += " -D HIPRT_SHARED_STACK ";
 
   return cflags;
 }
@@ -253,34 +247,9 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
     std::string rtc_options;
 
     rtc_options.append(" --offload-arch=").append(arch);
-
-    const std::string block_size_str = std::to_string(HIPRT_THREAD_GROUP_SIZE);
-    const std::string stack_size_str = std::to_string(HIPRT_SHARED_STACK_SIZE);
-    const std::string global_stack_size_thread = std::to_string(HIPRT_THREAD_STACK_SIZE);
-    const std::string global_stack_size = std::to_string(HIPRT_GLOBAL_STACK_SIZE);
-
-    string block_size_def = " -D HIPRT_THREAD_GROUP_SIZE=" + block_size_str;
-    string stack_size_def = " -D HIPRT_SHARED_STACK_SIZE=" + stack_size_str;
-    string global_stack_size_thread_def = " -D HIPRT_THREAD_STACK_SIZE=" +
-                                          global_stack_size_thread;
-    string global_stack_size_def = " -D HIPRT_GLOBAL_STACK_SIZE=" + global_stack_size;
-
-    if (use_lds) {
-
-      rtc_options.append(block_size_def.c_str());
-      rtc_options.append(stack_size_def.c_str());
-      rtc_options.append(global_stack_size_thread_def.c_str());
-      rtc_options.append(global_stack_size_def.c_str());
-
-      rtc_options.append(" -DHIPRT_SHARED_STACK");
-    }
-
-
     rtc_options.append(" -D __HIPRT__");
-    rtc_options.append(" -ffast-math");
-    rtc_options.append(" -O3 -std=c++17");
+    rtc_options.append(" -ffast-math -O3 -std=c++17");
     rtc_options.append(" -fgpu-rdc -c --gpu-bundle-output -c -emit-llvm");
-
 
     string command = string_printf("%s %s -I %s  %s -o \"%s\"",
                                    hipcc,
@@ -304,14 +273,15 @@ string HIPRTDevice::compile_kernel(const uint kernel_features, const char *name,
     }
   }
 
-  //linking
   // linking
-  std::string linker_options;
+  string linker_options;
   linker_options.append(" --offload-arch=").append(arch);
   linker_options.append(" -fgpu-rdc --hip-link --cuda-device-only ");
-  std::string hiprt_bc("hiprt02000_amd_lib_win.bc");
+  string hiprt_ver(HIPRT_VERSION_STR);
+  string hiprt_bc;
+  hiprt_bc = "hiprt" + hiprt_ver + "_amd_lib_win.bc";
 
-  std::string linker_command = string_printf("clang %s \"%s\" %s -o \"%s\"",
+  string linker_command = string_printf("clang %s \"%s\" %s -o \"%s\"",
                                              linker_options.c_str(),
                                              bitcode.c_str(),
                                              hiprt_bc.c_str(),
@@ -930,9 +900,6 @@ hiprtScene HIPRTDevice::build_tlas(BVHHIPRT *bvh,
       if (ob->get_motion().size()) {
         int motion_size = ob->get_motion().size();
         assert(motion_size == 1);
-
-        const int num_bvh_steps = bvh->params.num_motion_triangle_steps;
-        const int num_bvh_steps_blas = current_bvh->params.num_motion_curve_steps;
 
         array<Transform> tfm_array = ob->get_motion();
         float time_iternval = 1 / (float)(motion_size - 1);

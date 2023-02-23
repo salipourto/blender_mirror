@@ -676,11 +676,6 @@ if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
     list(APPEND target_gpus "--offload-arch=${arch}")
   endforeach()
 
-  set(THREAD_GROUP_SIZE 256)
-  set(SHARED_STACK_SIZE 24)
-  set(THREAD_STACK_SIZE 64)
-  set(GLOBAL_STACK_SIZE 536870912)
-
   set(hiprt_compile_flags
     ${hiprt_compile_flags}
     ${target_gpus}
@@ -691,11 +686,6 @@ if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
     -D CCL_NAMESPACE_END=
     -D HIPCC
     -D __HIPRT__
-    -D HIPRT_SHARED_STACK
-    -D HIPRT_THREAD_GROUP_SIZE=${THREAD_GROUP_SIZE}
-    -D HIPRT_SHARED_STACK_SIZE=${SHARED_STACK_SIZE}
-    -D HIPRT_THREAD_STACK_SIZE=${THREAD_STACK_SIZE}
-    -D HIPRT_GLOBAL_STACK_SIZE=${GLOBAL_STACK_SIZE}
     -std=c++17
     -fgpu-rdc
     -c
@@ -713,7 +703,6 @@ if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
     set(hiprt_compile_flags ${hiprt_compile_flags} -D WITH_CYCLES_DEBUG)
   endif()
 
-  set(hiprt_ver 02000)
 
   add_custom_command(
     OUTPUT  ${bitcode_file}
@@ -724,7 +713,7 @@ if(WITH_CYCLES_HIPRT_BINARIES AND WITH_CYCLES_DEVICE_HIPRT)
     set(hiprt_link_command ${CMAKE_COMMAND})
     set(hiprt_link_flags   -E env "HIP_PATH=${HIP_ROOT_DIR}"
       clang++)
-    set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}/hiprt${hiprt_ver}_amd_lib_win.bc)
+    set(hiprt_bitcode $ENV{HIPRT_SDK_DIR}/hiprt${HIPRT_VERSION}_amd_lib_win.bc)
   else()
     # not implemented yet
   endif()

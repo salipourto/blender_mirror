@@ -8,9 +8,7 @@
 #  include "device/hip/graphics_interop.h"
 #  include "device/hip/kernel.h"
 #  include "device/hiprt/device_impl.h"
-#  ifdef KERNEL_TIME
-#    include "util/time.h"
-#  endif
+
 
 CCL_NAMESPACE_BEGIN
 
@@ -36,8 +34,7 @@ bool HIPRTDeviceQueue::enqueue(DeviceKernel kernel,
   const HIPDeviceKernel &hip_kernel = hiprt_device_->kernels.get(kernel);
 
   /* Compute kernel launch parameters. */
-  const int num_threads_per_block = hiprt_device_->use_lds ? HIPRT_THREAD_GROUP_SIZE :
-                                                             hip_kernel.num_threads_per_block;
+  const int num_threads_per_block = HIPRT_THREAD_GROUP_SIZE;
   const int num_blocks = divide_up(work_size, num_threads_per_block);
 
   int shared_mem_bytes = 0;

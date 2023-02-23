@@ -10,13 +10,9 @@
 #  include "device/hip/queue.h"
 #  include "device/hiprt/queue.h"
 #  include "hiprt/hiprt.h"
+#  include "kernel/device/hiprt/globals.h"
 
-
-#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
-#  define HIPRT_SHARED_STACK_SIZE 24  // LDS allocation for each thread
-#  define HIPRT_THREAD_STACK_SIZE 64  // global stack allocation per thread
-#  define HIPRT_THREAD_GROUP_SIZE \
-    256  // total locaal stack size would be number of threads * HIPRT_SHARED_STACK_SIZE
+//#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
 
 CCL_NAMESPACE_BEGIN
 
@@ -58,8 +54,6 @@ class HIPRTDevice : public HIPDevice {
     return hiprt_context;
   }
 
-  bool use_lds;
-
  protected:
 
    enum Filter_Function { Opaque = 0, Shadows, SSR, Volume, Max_Intersect_Filter_Function };
@@ -73,7 +67,29 @@ class HIPRTDevice : public HIPDevice {
                         hiprtBuildOptions options,
                         bool refit);
 
+  hiprtContext hiprt_context;
+  hiprtScene scene;
+  hiprtFuncTable functions_table;
 
+  //the following vectors are to transfer scene information available on the host to the GPU
+  //visibility, instance_transform_matrix, transform_headers, and hiprt_blas_ptr are passed to hiprt to build bvh
+  //the rest are directly used in traversal functions/intersection kernels and are defined on the GPU side as members of KernelParamsHIPRT struct
+  //the host memory is copied to GPU through const_copy_to() function
+
+  device_vector<uint32_t> visibility;
+
+  // instance_transform_matrix passes transform matrix of instances converted from Cycles Transform
+  // format to instanceFrames member of hiprtSceneBuildInput
+  device_vector<hiprtFrameMatrix> instance_transform_matrix;
+  // Movement over a time interval for motion blur is captured through multiple transform matrices
+  // in this case transform matrix of an instance cannot be directly retrieved by looking up
+  // instance_transform_matrix at the instance id transform_headers maps the instance id to the
+  // appropriate index to retrieve instance transform matrix (frameIndex member of
+  // hiprtTransformHeader) transform_headers also has the information on how many transform
+  // matrices are associated with an instance (frameCount member of hiprtTransformHeader)
+  // transform_headers is passed to hiprt through instanceTransformHeaders member of
+  // hiprtSceneBuildInput
+  device_vector<hiprtTransformHeader> transform_headers;
 
   //instance/object ids are not explicitly  passed to hiprt
   //hiprt assigns the ids based on the order blas pointers are passed to it (through instanceGeometries member of hiprtSceneBuildInput)
@@ -87,27 +103,18 @@ class HIPRTDevice : public HIPDevice {
   device_vector<uint64_t> blas_ptr;
 
 
-  device_vector<uint32_t> visibility;
-
-  //instance_transform_matrix passes transform matrix of instances converted from Cycles Transform format to
-  //instanceFrames member of hiprtSceneBuildInput
-  device_vector<hiprtFrameMatrix> instance_transform_matrix;
-  //Movement over a time interval for motion blur is captured through multiple transform matrices
-  //in this case transform matrix of an instance cannot be directly retrieved by looking up instance_transform_matrix at the instance id
-  //transform_headers maps the instance id to the appropriate index to retrieve instance transform matrix (frameIndex member of hiprtTransformHeader)
-  //transform_headers also has the information on how many transform matrices are associated with an instance (frameCount member of hiprtTransformHeader)
-  //transform_headers is passed to hiprt through instanceTransformHeaders member of hiprtSceneBuildInput
-  device_vector<hiprtTransformHeader> transform_headers;
-
-  device_vector<int2> custom_prim_info_offset;
+  //custom_prim_info stores custom information for custom primitives for all the primitives in a scene
+  //primitive id that hiprt provides is local to the geometry hit, custom_prim_info_offset returns the offset to add to the primitive id
+  //to retrieve primitive info from custom_prim_info
   device_vector<int2> custom_prim_info;
+  device_vector<int2> custom_prim_info_offset;
 
-  device_vector<int> prim_time_offset;
+  //prims_time stores primitive time for geometries with motion blur
+  //prim_time_offset returns the offset to add to primitive id to retrieve primitive time
   device_vector<float2> prims_time;
+  device_vector<int> prim_time_offset;
 
-  hiprtContext hiprt_context;
-  hiprtScene scene;
-  hiprtFuncTable functions_table;
+
 };
 CCL_NAMESPACE_END
 

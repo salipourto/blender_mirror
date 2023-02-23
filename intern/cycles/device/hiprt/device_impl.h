@@ -12,7 +12,6 @@
 #  include "hiprt/hiprt.h"
 #  include "kernel/device/hiprt/globals.h"
 
-//#  define HIPRT_GLOBAL_STACK_SIZE 512 * 1024 * 1024
 
 CCL_NAMESPACE_BEGIN
 
